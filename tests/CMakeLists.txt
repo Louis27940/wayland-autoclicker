@@ -26,6 +26,9 @@ add_test(NAME tst_ClickController COMMAND tst_ClickController)
 # Test DBusSignatures
 add_executable(tst_DBusSignatures
     tst_DBusSignatures.cpp
+    ../src/PortalManager.cpp
+    ../src/PortalManager.hpp
 )
+target_include_directories(tst_DBusSignatures PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 target_link_libraries(tst_DBusSignatures PRIVATE Qt6::Core Qt6::DBus Qt6::Test)
 add_test(NAME tst_DBusSignatures COMMAND tst_DBusSignatures)

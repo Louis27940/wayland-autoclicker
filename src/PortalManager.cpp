@@ -3,8 +3,25 @@
 #include <QDBusReply>
 #include <QDebug>
 
+QDBusArgument &operator<<(QDBusArgument &argument, const PortalShortcut &shortcut) {
+    argument.beginStructure();
+    argument << shortcut.id << shortcut.options;
+    argument.endStructure();
+    return argument;
+}
+
+const QDBusArgument &operator>>(const QDBusArgument &argument, PortalShortcut &shortcut) {
+    argument.beginStructure();
+    argument >> shortcut.id >> shortcut.options;
+    argument.endStructure();
+    return argument;
+}
+
 PortalManager::PortalManager(QObject* parent)
-    : QObject(parent) {}
+    : QObject(parent) {
+    qDBusRegisterMetaType<PortalShortcut>();
+    qDBusRegisterMetaType<QList<PortalShortcut>>();
+}
 
 PortalManager::~PortalManager() {
     closeSessions();
@@ -376,24 +393,21 @@ void PortalManager::requestBindShortcuts() {
         SLOT(handleGlobalShortcutsResponse(uint, QVariantMap))
     );
 
-    // Prepare shortcuts descriptions with requested triggers
-    struct ShortcutDef {
-        QString id;
-        QString description;
-        QString preferredTrigger;
-    };
-    QList<ShortcutDef> shortcutDefs = {
-        {QStringLiteral("toggle"), QStringLiteral("Démarrer / Arrêter l'autoclicker"), m_requestedToggleTrigger},
-        {QStringLiteral("stop"), QStringLiteral("Arrêt immédiat de l'autoclicker"), m_requestedStopTrigger}
-    };
-
-    QVariantList shortcutsList;
-    for (const auto& s : shortcutDefs) {
-        QVariantMap sOpts;
-        sOpts.insert(QStringLiteral("description"), s.description);
-        sOpts.insert(QStringLiteral("preferred_trigger"), s.preferredTrigger);
-        shortcutsList.append(QVariant::fromValue(QVariantList{s.id, sOpts}));
-    }
+    QList<PortalShortcut> shortcutsList;
+    shortcutsList.append(PortalShortcut{
+        QStringLiteral("toggle"),
+        QVariantMap{
+            {QStringLiteral("description"), QStringLiteral("Démarrer / Arrêter l'autoclicker")},
+            {QStringLiteral("preferred_trigger"), m_requestedToggleTrigger}
+        }
+    });
+    shortcutsList.append(PortalShortcut{
+        QStringLiteral("stop"),
+        QVariantMap{
+            {QStringLiteral("description"), QStringLiteral("Arrêt immédiat de l'autoclicker")},
+            {QStringLiteral("preferred_trigger"), m_requestedStopTrigger}
+        }
+    });
 
     QVariantMap options;
     options.insert(QStringLiteral("handle_token"), m_currentScRequestToken);
@@ -416,7 +430,11 @@ void PortalManager::requestBindShortcuts() {
         << QStringLiteral("") // Parent window
         << options;
 
-    QDBusConnection::sessionBus().call(msg);
+    QDBusMessage reply = QDBusConnection::sessionBus().call(msg);
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        qWarning() << "BindShortcuts call error:" << reply.errorMessage();
+        emit shortcutsStateChanged(false, QStringLiteral("Erreur: %1").arg(reply.errorMessage()));
+    }
 }
 
 void PortalManager::handleGlobalShortcutsResponse(uint responseCode, const QVariantMap& results) {
@@ -452,11 +470,29 @@ void PortalManager::handleGlobalShortcutsResponse(uint responseCode, const QVari
 
         requestBindShortcuts();
     } else if (results.contains(QStringLiteral("shortcuts"))) {
+        QString toggleEffective = m_requestedToggleTrigger;
+        QString stopEffective = m_requestedStopTrigger;
+
+        // Try to read actual assigned triggers from results
+        QVariant scVal = results.value(QStringLiteral("shortcuts"));
+        if (scVal.canConvert<QDBusArgument>()) {
+            QDBusArgument arg = scVal.value<QDBusArgument>();
+            QList<PortalShortcut> boundShortcuts;
+            arg >> boundShortcuts;
+            for (const auto& s : boundShortcuts) {
+                QString trigger = s.options.value(QStringLiteral("trigger_description")).toString();
+                if (!trigger.isEmpty()) {
+                    if (s.id == QStringLiteral("toggle")) toggleEffective = trigger;
+                    else if (s.id == QStringLiteral("stop")) stopEffective = trigger;
+                }
+            }
+        }
+
         {
             std::lock_guard<std::mutex> lock(m_sessionMutex);
             m_shortcutsActive = true;
-            m_toggleShortcutDesc = m_requestedToggleTrigger;
-            m_stopShortcutDesc = m_requestedStopTrigger;
+            m_toggleShortcutDesc = toggleEffective;
+            m_stopShortcutDesc = stopEffective;
         }
 
         // Connect to Activated signal

@@ -6,10 +6,21 @@
 #include <QDBusObjectPath>
 #include <QVariantMap>
 #include <QString>
+#include <QDBusArgument>
+#include <QDBusMetaType>
 #include <atomic>
 #include <memory>
 #include <mutex>
 #include "InputInjector.hpp"
+
+struct PortalShortcut {
+    QString id;
+    QVariantMap options;
+};
+Q_DECLARE_METATYPE(PortalShortcut)
+
+QDBusArgument &operator<<(QDBusArgument &argument, const PortalShortcut &shortcut);
+const QDBusArgument &operator>>(const QDBusArgument &argument, PortalShortcut &shortcut);
 
 class PortalManager : public QObject, public InputInjector {
     Q_OBJECT

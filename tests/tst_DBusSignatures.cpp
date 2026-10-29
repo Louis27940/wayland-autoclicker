@@ -3,6 +3,7 @@
 #include <QDBusObjectPath>
 #include <QDBusMetaType>
 #include <QVariantMap>
+#include "PortalManager.hpp"
 
 class tst_DBusSignatures : public QObject {
     Q_OBJECT
@@ -22,6 +23,7 @@ private:
 private slots:
     void testNotifyPointerButtonSignature();
     void testNotifyPointerMotionRelativeSignature();
+    void testBindShortcutsSignature();
 };
 
 void tst_DBusSignatures::testNotifyPointerButtonSignature() {
@@ -66,6 +68,33 @@ void tst_DBusSignatures::testNotifyPointerMotionRelativeSignature() {
 
     // Strict D-Bus signature: o = object path, a{sv} = dict of string to variant, d = double, d = double
     QCOMPARE(computeArgumentsSignature(msg), QStringLiteral("oa{sv}dd"));
+}
+
+void tst_DBusSignatures::testBindShortcutsSignature() {
+    qDBusRegisterMetaType<PortalShortcut>();
+    qDBusRegisterMetaType<QList<PortalShortcut>>();
+
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        QStringLiteral("org.freedesktop.portal.Desktop"),
+        QStringLiteral("/org/freedesktop/portal/desktop"),
+        QStringLiteral("org.freedesktop.portal.GlobalShortcuts"),
+        QStringLiteral("BindShortcuts")
+    );
+
+    QDBusObjectPath sessionPath("/org/freedesktop/portal/desktop/session/1_2345/session_token");
+    QList<PortalShortcut> shortcuts;
+    shortcuts.append(PortalShortcut{"toggle", QVariantMap{{"description", "Toggle"}, {"preferred_trigger", "F6"}}});
+    shortcuts.append(PortalShortcut{"stop", QVariantMap{{"description", "Stop"}, {"preferred_trigger", "F7"}}});
+    QString parentWindow = "";
+    QVariantMap options;
+
+    msg << QVariant::fromValue(sessionPath)
+        << QVariant::fromValue(shortcuts)
+        << parentWindow
+        << QVariant::fromValue(options);
+
+    // Strict D-Bus signature: o = object path, a(sa{sv}) = array of shortcut structs, s = parent window, a{sv} = options
+    QCOMPARE(computeArgumentsSignature(msg), QStringLiteral("oa(sa{sv})sa{sv}"));
 }
 
 QTEST_MAIN(tst_DBusSignatures)
