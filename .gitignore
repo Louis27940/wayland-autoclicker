@@ -1,0 +1,6 @@
+build/
+.cache/
+*.o
+*.moc
+moc_*.cpp
+*.a

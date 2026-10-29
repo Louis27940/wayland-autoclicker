@@ -29,11 +29,11 @@ void ClickController::setMode(Mode mode) {
 }
 
 void ClickController::setAutoStopLimit(std::chrono::seconds limit) {
-    m_autoStopSec.store(std::max(0LL, limit.count()), std::memory_order_relaxed);
+    m_autoStopSec.store(std::max<int64_t>(0, limit.count()), std::memory_order_relaxed);
 }
 
 void ClickController::setStartCountdown(std::chrono::seconds countdown) {
-    m_countdownSec.store(std::clamp(countdown.count(), 0LL, 30LL), std::memory_order_relaxed);
+    m_countdownSec.store(std::clamp<int64_t>(countdown.count(), 0, 30), std::memory_order_relaxed);
 }
 
 std::chrono::milliseconds ClickController::interval() const {
@@ -184,7 +184,7 @@ void ClickController::workerLoop(std::stop_token stopToken) {
 
         if (currentAutoStop > 0s) {
             const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - runStartTime);
-            const auto remainingSec = static_cast<int>(std::max(0LL, (currentAutoStop - elapsed).count()));
+            const auto remainingSec = static_cast<int>(std::max<int64_t>(0, (currentAutoStop - elapsed).count()));
             QMetaObject::invokeMethod(
                 this,
                 [this, remainingSec] { emit autoStopTick(remainingSec); },
