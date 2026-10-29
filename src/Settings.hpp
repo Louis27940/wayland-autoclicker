@@ -33,6 +33,13 @@ public:
     [[nodiscard]] bool minimizeToTrayOnStart() const;
     void setMinimizeToTrayOnStart(bool enable);
 
+    // Shortcuts configuration
+    [[nodiscard]] QString toggleShortcut() const;
+    void setToggleShortcut(const QString& shortcut);
+
+    [[nodiscard]] QString stopShortcut() const;
+    void setStopShortcut(const QString& shortcut);
+
     // Dedicated token persistence
     [[nodiscard]] QString restoreToken() const;
     void setRestoreToken(const QString& token);

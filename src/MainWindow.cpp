@@ -25,6 +25,7 @@ MainWindow::MainWindow(
     // Portal connections
     connect(m_portalManager, &PortalManager::stateChanged, this, &MainWindow::onPortalStateChanged);
     connect(m_portalManager, &PortalManager::shortcutsStateChanged, this, &MainWindow::onShortcutsStateChanged);
+    connect(m_portalManager, &PortalManager::effectiveShortcutsUpdated, this, &MainWindow::onEffectiveShortcutsUpdated);
     connect(m_portalManager, &PortalManager::restoreTokenUpdated, m_settings, &Settings::setRestoreToken);
     connect(m_portalManager, &PortalManager::sessionClosed, this, [this] {
         m_clickController->stop(ClickController::StopReason::SessionClosed);
@@ -61,7 +62,7 @@ MainWindow::MainWindow(
 
     // Initialize portals
     m_portalManager->initRemoteDesktopSession(m_settings->restoreToken());
-    m_portalManager->initGlobalShortcuts();
+    m_portalManager->initGlobalShortcuts(m_settings->toggleShortcut(), m_settings->stopShortcut());
 }
 
 MainWindow::~MainWindow() {
@@ -70,7 +71,7 @@ MainWindow::~MainWindow() {
 
 void MainWindow::setupUi() {
     setWindowTitle(QStringLiteral("Wayland Autoclicker (KDE Plasma 6)"));
-    setFixedSize(500, 420);
+    setFixedSize(520, 500);
 
     auto* centralWidget = new QWidget(this);
     auto* mainLayout = new QVBoxLayout(centralWidget);
@@ -160,15 +161,33 @@ void MainWindow::setupUi() {
     middleLayout->addWidget(moreGroup);
     mainLayout->addLayout(middleLayout);
 
-    // 3. Action Buttons
+    // 3. GroupBox "Global Shortcuts"
+    auto* shortcutsGroup = new QGroupBox(QStringLiteral("Global Shortcuts"), this);
+    auto* shortcutsLayout = new QHBoxLayout(shortcutsGroup);
+    shortcutsLayout->setSpacing(8);
+
+    m_toggleShortcutEdit = new QKeySequenceEdit(this);
+    m_stopShortcutEdit = new QKeySequenceEdit(this);
+    m_applyShortcutsButton = new QPushButton(QStringLiteral("Apply"), this);
+    m_applyShortcutsButton->setFixedWidth(80);
+
+    shortcutsLayout->addWidget(new QLabel(QStringLiteral("Toggle:"), this));
+    shortcutsLayout->addWidget(m_toggleShortcutEdit);
+    shortcutsLayout->addWidget(new QLabel(QStringLiteral("Stop:"), this));
+    shortcutsLayout->addWidget(m_stopShortcutEdit);
+    shortcutsLayout->addWidget(m_applyShortcutsButton);
+
+    mainLayout->addWidget(shortcutsGroup);
+
+    // 4. Action Buttons
     auto* buttonsLayout = new QHBoxLayout();
     buttonsLayout->setSpacing(12);
 
-    m_startButton = new QPushButton(QStringLiteral("Start (F8)"), this);
+    m_startButton = new QPushButton(QStringLiteral("Start"), this);
     m_startButton->setFixedHeight(38);
     m_startButton->setStyleSheet(QStringLiteral("font-weight: bold; background-color: #27ae60; color: white; border-radius: 4px;"));
 
-    m_stopButton = new QPushButton(QStringLiteral("Stop (F9)"), this);
+    m_stopButton = new QPushButton(QStringLiteral("Stop"), this);
     m_stopButton->setFixedHeight(38);
     m_stopButton->setEnabled(false);
     m_stopButton->setStyleSheet(QStringLiteral("font-weight: bold; background-color: #c0392b; color: white; border-radius: 4px;"));
@@ -177,7 +196,7 @@ void MainWindow::setupUi() {
     buttonsLayout->addWidget(m_stopButton);
     mainLayout->addLayout(buttonsLayout);
 
-    // 4. Status Footer
+    // 5. Status Footer
     auto* statusGroup = new QGroupBox(QStringLiteral("Status & Diagnostics"), this);
     auto* statusLayout = new QVBoxLayout(statusGroup);
     statusLayout->setSpacing(4);
@@ -209,6 +228,7 @@ void MainWindow::setupUi() {
 
     connect(m_startButton, &QPushButton::clicked, this, &MainWindow::onStartClicked);
     connect(m_stopButton, &QPushButton::clicked, this, &MainWindow::onStopClicked);
+    connect(m_applyShortcutsButton, &QPushButton::clicked, this, &MainWindow::onApplyShortcutsClicked);
 }
 
 void MainWindow::loadSettings() {
@@ -225,6 +245,13 @@ void MainWindow::loadSettings() {
     m_countdownSpinBox->setValue(static_cast<int>(m_settings->startCountdown().count()));
     m_minimizeTrayCheck->setChecked(m_settings->minimizeToTrayOnStart());
 
+    QString toggleKey = m_settings->toggleShortcut();
+    QString stopKey = m_settings->stopShortcut();
+    m_toggleShortcutEdit->setKeySequence(QKeySequence(toggleKey));
+    m_stopShortcutEdit->setKeySequence(QKeySequence(stopKey));
+    m_startButton->setText(QStringLiteral("Start (%1)").arg(toggleKey));
+    m_stopButton->setText(QStringLiteral("Stop (%1)").arg(stopKey));
+
     updateJitterMax();
     onOptionChanged();
 }
@@ -237,7 +264,35 @@ void MainWindow::saveSettings() {
     m_settings->setAutoStopLimit(std::chrono::seconds(m_autoStopSpinBox->value()));
     m_settings->setStartCountdown(std::chrono::seconds(m_countdownSpinBox->value()));
     m_settings->setMinimizeToTrayOnStart(m_minimizeTrayCheck->isChecked());
+
+    QString toggleKey = m_toggleShortcutEdit->keySequence().toString();
+    QString stopKey = m_stopShortcutEdit->keySequence().toString();
+    if (!toggleKey.isEmpty()) m_settings->setToggleShortcut(toggleKey);
+    if (!stopKey.isEmpty()) m_settings->setStopShortcut(stopKey);
+
     m_settings->sync();
+}
+
+void MainWindow::onApplyShortcutsClicked() {
+    QString toggleKey = m_toggleShortcutEdit->keySequence().toString();
+    QString stopKey = m_stopShortcutEdit->keySequence().toString();
+
+    if (toggleKey.isEmpty()) toggleKey = QStringLiteral("F6");
+    if (stopKey.isEmpty()) stopKey = QStringLiteral("F7");
+
+    m_settings->setToggleShortcut(toggleKey);
+    m_settings->setStopShortcut(stopKey);
+    m_settings->sync();
+
+    m_startButton->setText(QStringLiteral("Start (%1)").arg(toggleKey));
+    m_stopButton->setText(QStringLiteral("Stop (%1)").arg(stopKey));
+
+    m_portalManager->rebindShortcuts(toggleKey, stopKey);
+}
+
+void MainWindow::onEffectiveShortcutsUpdated(const QString& toggleKey, const QString& stopKey) {
+    m_startButton->setText(QStringLiteral("Start (%1)").arg(toggleKey));
+    m_stopButton->setText(QStringLiteral("Stop (%1)").arg(stopKey));
 }
 
 std::chrono::milliseconds MainWindow::calculateTotalInterval() const {

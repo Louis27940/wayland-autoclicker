@@ -7,6 +7,7 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QGroupBox>
+#include <QKeySequenceEdit>
 #include <QCloseEvent>
 #include <memory>
 #include "ClickController.hpp"
@@ -35,9 +36,11 @@ private slots:
     void onOptionChanged();
     void onStartClicked();
     void onStopClicked();
+    void onApplyShortcutsClicked();
 
     void onPortalStateChanged(PortalManager::PortalState state, const QString& message);
     void onShortcutsStateChanged(bool active, const QString& details);
+    void onEffectiveShortcutsUpdated(const QString& toggleKey, const QString& stopKey);
     void onRunStarted();
     void onRunFinished(ClickController::StopReason reason);
     void onCountdownTick(int remaining);
@@ -72,6 +75,11 @@ private:
     QSpinBox* m_autoStopSpinBox{nullptr};
     QSpinBox* m_countdownSpinBox{nullptr};
     QCheckBox* m_minimizeTrayCheck{nullptr};
+
+    // UI Widgets - Shortcuts
+    QKeySequenceEdit* m_toggleShortcutEdit{nullptr};
+    QKeySequenceEdit* m_stopShortcutEdit{nullptr};
+    QPushButton* m_applyShortcutsButton{nullptr};
 
     // UI Widgets - Actions
     QPushButton* m_startButton{nullptr};

@@ -312,7 +312,10 @@ void PortalManager::handleRemoteDesktopSessionClosed() {
     emit stateChanged(PortalState::Closed, QStringLiteral("Session fermée par le compositeur Wayland"));
 }
 
-void PortalManager::initGlobalShortcuts() {
+void PortalManager::initGlobalShortcuts(const QString& toggleTrigger, const QString& stopTrigger) {
+    if (!toggleTrigger.isEmpty()) m_requestedToggleTrigger = toggleTrigger;
+    if (!stopTrigger.isEmpty()) m_requestedStopTrigger = stopTrigger;
+
     m_currentScRequestToken = generateToken(QStringLiteral("u_sc_cs"));
     m_currentScRequestPath = expectedRequestPath(m_currentScRequestToken);
 
@@ -343,6 +346,23 @@ void PortalManager::initGlobalShortcuts() {
     }
 }
 
+void PortalManager::rebindShortcuts(const QString& toggleTrigger, const QString& stopTrigger) {
+    if (!toggleTrigger.isEmpty()) m_requestedToggleTrigger = toggleTrigger;
+    if (!stopTrigger.isEmpty()) m_requestedStopTrigger = stopTrigger;
+
+    bool hasSession = false;
+    {
+        std::lock_guard<std::mutex> lock(m_sessionMutex);
+        hasSession = !m_shortcutsSessionPath.path().isEmpty();
+    }
+
+    if (hasSession) {
+        requestBindShortcuts();
+    } else {
+        initGlobalShortcuts(m_requestedToggleTrigger, m_requestedStopTrigger);
+    }
+}
+
 void PortalManager::requestBindShortcuts() {
     m_currentScRequestToken = generateToken(QStringLiteral("u_sc_bs"));
     m_currentScRequestPath = expectedRequestPath(m_currentScRequestToken);
@@ -356,15 +376,15 @@ void PortalManager::requestBindShortcuts() {
         SLOT(handleGlobalShortcutsResponse(uint, QVariantMap))
     );
 
-    // Prepare shortcuts descriptions
+    // Prepare shortcuts descriptions with requested triggers
     struct ShortcutDef {
         QString id;
         QString description;
         QString preferredTrigger;
     };
     QList<ShortcutDef> shortcutDefs = {
-        {QStringLiteral("toggle"), QStringLiteral("Démarrer / Arrêter l'autoclicker"), QStringLiteral("F8")},
-        {QStringLiteral("stop"), QStringLiteral("Arrêt immédiat de l'autoclicker"), QStringLiteral("F9")}
+        {QStringLiteral("toggle"), QStringLiteral("Démarrer / Arrêter l'autoclicker"), m_requestedToggleTrigger},
+        {QStringLiteral("stop"), QStringLiteral("Arrêt immédiat de l'autoclicker"), m_requestedStopTrigger}
     };
 
     QVariantList shortcutsList;
@@ -435,6 +455,8 @@ void PortalManager::handleGlobalShortcutsResponse(uint responseCode, const QVari
         {
             std::lock_guard<std::mutex> lock(m_sessionMutex);
             m_shortcutsActive = true;
+            m_toggleShortcutDesc = m_requestedToggleTrigger;
+            m_stopShortcutDesc = m_requestedStopTrigger;
         }
 
         // Connect to Activated signal
@@ -447,7 +469,11 @@ void PortalManager::handleGlobalShortcutsResponse(uint responseCode, const QVari
             SLOT(handleShortcutActivated(QDBusObjectPath, QString, qulonglong, QVariantMap))
         );
 
-        emit shortcutsStateChanged(true, QStringLiteral("Raccourcis globaux actifs (F8 / F9)"));
+        emit effectiveShortcutsUpdated(m_toggleShortcutDesc, m_stopShortcutDesc);
+        emit shortcutsStateChanged(
+            true,
+            QStringLiteral("Raccourcis globaux actifs (%1 / %2)").arg(m_toggleShortcutDesc, m_stopShortcutDesc)
+        );
     }
 }
 

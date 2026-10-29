@@ -44,12 +44,20 @@ public:
 
 public slots:
     void initRemoteDesktopSession(const QString& savedRestoreToken = QString{});
-    void initGlobalShortcuts();
+    void initGlobalShortcuts(
+        const QString& toggleTrigger = QStringLiteral("F6"),
+        const QString& stopTrigger = QStringLiteral("F7")
+    );
+    void rebindShortcuts(
+        const QString& toggleTrigger,
+        const QString& stopTrigger
+    );
     void closeSessions();
 
 signals:
     void stateChanged(PortalManager::PortalState newState, const QString& message);
     void shortcutsStateChanged(bool active, const QString& details);
+    void effectiveShortcutsUpdated(const QString& toggleKey, const QString& stopKey);
     void toggleShortcutTriggered();
     void stopShortcutTriggered();
     void restoreTokenUpdated(const QString& newToken);
@@ -83,8 +91,10 @@ private:
     QString m_lastRestoreToken;
     bool m_retryWithoutToken{false};
     bool m_shortcutsActive{false};
-    QString m_toggleShortcutDesc{QStringLiteral("Bascule (F8)")};
-    QString m_stopShortcutDesc{QStringLiteral("Arrêt (F9)")};
+    QString m_requestedToggleTrigger{QStringLiteral("F6")};
+    QString m_requestedStopTrigger{QStringLiteral("F7")};
+    QString m_toggleShortcutDesc{QStringLiteral("Bascule (F6)")};
+    QString m_stopShortcutDesc{QStringLiteral("Arrêt (F7)")};
 
     QString m_currentRdRequestToken;
     QString m_currentRdRequestPath;

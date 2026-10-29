@@ -67,6 +67,22 @@ void Settings::setMinimizeToTrayOnStart(bool enable) {
     m_settings.setValue(QStringLiteral("preferences/minimize_to_tray"), enable);
 }
 
+QString Settings::toggleShortcut() const {
+    return m_settings.value(QStringLiteral("shortcuts/toggle"), QStringLiteral("F6")).toString();
+}
+
+void Settings::setToggleShortcut(const QString& shortcut) {
+    m_settings.setValue(QStringLiteral("shortcuts/toggle"), shortcut);
+}
+
+QString Settings::stopShortcut() const {
+    return m_settings.value(QStringLiteral("shortcuts/stop"), QStringLiteral("F7")).toString();
+}
+
+void Settings::setStopShortcut(const QString& shortcut) {
+    m_settings.setValue(QStringLiteral("shortcuts/stop"), shortcut);
+}
+
 QString Settings::restoreToken() const {
     return m_settings.value(QStringLiteral("portal/restore_token"), QString{}).toString();
 }
