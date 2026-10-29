@@ -1,10 +1,23 @@
 #include <QtTest>
 #include <QDBusMessage>
 #include <QDBusObjectPath>
+#include <QDBusMetaType>
 #include <QVariantMap>
 
 class tst_DBusSignatures : public QObject {
     Q_OBJECT
+
+private:
+    static QString computeArgumentsSignature(const QDBusMessage& msg) {
+        QString sig;
+        for (const auto& arg : msg.arguments()) {
+            const char* typeSig = QDBusMetaType::typeToSignature(arg.metaType());
+            if (typeSig) {
+                sig += QString::fromLatin1(typeSig);
+            }
+        }
+        return sig;
+    }
 
 private slots:
     void testNotifyPointerButtonSignature();
@@ -21,8 +34,8 @@ void tst_DBusSignatures::testNotifyPointerButtonSignature() {
 
     QDBusObjectPath sessionPath("/org/freedesktop/portal/desktop/session/1_2345/session_token");
     QVariantMap options;
-    int32_t button = 272; // BTN_LEFT
-    uint32_t state = 1;   // Pressed
+    int32_t button = 272; // BTN_LEFT (signed 32-bit int: 'i')
+    uint32_t state = 1;   // Pressed (unsigned 32-bit int: 'u')
 
     msg << QVariant::fromValue(sessionPath)
         << QVariant::fromValue(options)
@@ -30,7 +43,7 @@ void tst_DBusSignatures::testNotifyPointerButtonSignature() {
         << state;
 
     // Strict D-Bus signature: o = object path, a{sv} = dict of string to variant, i = int32, u = uint32
-    QCOMPARE(msg.signature(), QStringLiteral("oa{sv}iu"));
+    QCOMPARE(computeArgumentsSignature(msg), QStringLiteral("oa{sv}iu"));
 }
 
 void tst_DBusSignatures::testNotifyPointerMotionRelativeSignature() {
@@ -52,7 +65,7 @@ void tst_DBusSignatures::testNotifyPointerMotionRelativeSignature() {
         << dy;
 
     // Strict D-Bus signature: o = object path, a{sv} = dict of string to variant, d = double, d = double
-    QCOMPARE(msg.signature(), QStringLiteral("oa{sv}dd"));
+    QCOMPARE(computeArgumentsSignature(msg), QStringLiteral("oa{sv}dd"));
 }
 
 QTEST_MAIN(tst_DBusSignatures)

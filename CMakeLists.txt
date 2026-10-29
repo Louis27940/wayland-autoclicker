@@ -36,24 +36,26 @@ set(HEADERS
     src/MainWindow.hpp
 )
 
-add_executable(wayland-autoclicker ${SOURCES} ${HEADERS})
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+    add_executable(wayland-autoclicker ${SOURCES} ${HEADERS})
 
-target_include_directories(wayland-autoclicker PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_include_directories(wayland-autoclicker PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-target_link_libraries(wayland-autoclicker PRIVATE
-    Qt6::Core
-    Qt6::Widgets
-    Qt6::DBus
-)
+    target_link_libraries(wayland-autoclicker PRIVATE
+        Qt6::Core
+        Qt6::Widgets
+        Qt6::DBus
+    )
 
-install(TARGETS wayland-autoclicker
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
+    install(TARGETS wayland-autoclicker
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
 
-install(FILES data/fr.perso.Autoclicker.desktop
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
-)
+    install(FILES data/fr.perso.Autoclicker.desktop
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+    )
 
-install(FILES data/icons/48x48/fr.perso.Autoclicker.png
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/48x48/apps
-)
+    install(FILES data/icons/48x48/fr.perso.Autoclicker.png
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/48x48/apps
+    )
+endif()

@@ -22,8 +22,8 @@ std::chrono::milliseconds TimingPolicy::clampJitter(
 
 std::pair<std::chrono::milliseconds, std::chrono::milliseconds>
 TimingPolicy::calculatePressDurationBounds(std::chrono::milliseconds interval) {
-    const auto clampedInterval = clampInterval(interval);
-    const auto percent35 = std::chrono::duration_cast<std::chrono::milliseconds>(clampedInterval * 35 / 100);
+    // According to §6.2: maxBound = min(35ms, 35% interval), minBound = min(20ms, maxBound)
+    const auto percent35 = std::chrono::duration_cast<std::chrono::milliseconds>(interval * 35 / 100);
     const auto maxBound = std::min(35ms, percent35);
     const auto minBound = std::min(20ms, maxBound);
     return {minBound, maxBound};
@@ -81,7 +81,6 @@ std::chrono::steady_clock::time_point TimingPolicy::computeNextExecution(
     m_gridInterval = clampInterval(interval);
     const auto clampedJitter = clampJitter(jitter, m_gridInterval);
 
-    // If lagged behind, advance deadline to future to prevent catch-up burst
     if (m_currentDeadline < now) {
         const auto diff = now - m_currentDeadline;
         const auto missedSteps = (diff / m_gridInterval) + 1;
