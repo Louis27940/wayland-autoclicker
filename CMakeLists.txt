@@ -1,0 +1,59 @@
+cmake_minimum_required(VERSION 3.21)
+project(WaylandAutoclicker VERSION 2.0.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+
+find_package(Qt6 6.2 REQUIRED COMPONENTS Core Widgets DBus)
+
+include(GNUInstallDirs)
+include(CTest)
+
+add_subdirectory(tests)
+
+set(SOURCES
+    src/main.cpp
+    src/TimingPolicy.cpp
+    src/ClickController.cpp
+    src/PortalManager.cpp
+    src/Settings.cpp
+    src/TrayController.cpp
+    src/MainWindow.cpp
+)
+
+set(HEADERS
+    src/InputInjector.hpp
+    src/TimingPolicy.hpp
+    src/ClickController.hpp
+    src/PortalManager.hpp
+    src/Settings.hpp
+    src/TrayController.hpp
+    src/MainWindow.hpp
+)
+
+add_executable(wayland-autoclicker ${SOURCES} ${HEADERS})
+
+target_include_directories(wayland-autoclicker PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+target_link_libraries(wayland-autoclicker PRIVATE
+    Qt6::Core
+    Qt6::Widgets
+    Qt6::DBus
+)
+
+install(TARGETS wayland-autoclicker
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(FILES data/fr.perso.Autoclicker.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+)
+
+install(FILES data/icons/48x48/fr.perso.Autoclicker.png
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/48x48/apps
+)
