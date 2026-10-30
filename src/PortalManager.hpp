@@ -53,6 +53,8 @@ public:
     [[nodiscard]] QString toggleShortcutDescription() const;
     [[nodiscard]] QString stopShortcutDescription() const;
 
+    static QString formatTriggerForXdg(const QString& trigger);
+
 public slots:
     void initRemoteDesktopSession(const QString& savedRestoreToken = QString{});
     void initGlobalShortcuts(
@@ -63,6 +65,7 @@ public slots:
         const QString& toggleTrigger,
         const QString& stopTrigger
     );
+    void configureShortcuts();
     void closeSessions();
 
 signals:
@@ -102,6 +105,7 @@ private:
     QString m_lastRestoreToken;
     bool m_retryWithoutToken{false};
     bool m_shortcutsActive{false};
+    bool m_shortcutSignalConnected{false};
     QString m_requestedToggleTrigger{QStringLiteral("F6")};
     QString m_requestedStopTrigger{QStringLiteral("F7")};
     QString m_toggleShortcutDesc{QStringLiteral("Bascule (F6)")};

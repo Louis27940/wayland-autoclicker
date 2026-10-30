@@ -80,6 +80,9 @@ private:
     QKeySequenceEdit* m_toggleShortcutEdit{nullptr};
     QKeySequenceEdit* m_stopShortcutEdit{nullptr};
     QPushButton* m_applyShortcutsButton{nullptr};
+    QPushButton* m_configureShortcutsButton{nullptr};
+
+    static bool isSequenceValidForGlobal(const QKeySequence& seq, QString& reason);
 
     // UI Widgets - Actions
     QPushButton* m_startButton{nullptr};

@@ -169,13 +169,18 @@ void MainWindow::setupUi() {
     m_toggleShortcutEdit = new QKeySequenceEdit(this);
     m_stopShortcutEdit = new QKeySequenceEdit(this);
     m_applyShortcutsButton = new QPushButton(QStringLiteral("Apply"), this);
-    m_applyShortcutsButton->setFixedWidth(80);
+    m_applyShortcutsButton->setFixedWidth(75);
+
+    m_configureShortcutsButton = new QPushButton(QStringLiteral("KDE Config"), this);
+    m_configureShortcutsButton->setFixedWidth(90);
+    m_configureShortcutsButton->setToolTip(QStringLiteral("Ouvrir la configuration des raccourcis dans les paramètres système de KDE"));
 
     shortcutsLayout->addWidget(new QLabel(QStringLiteral("Toggle:"), this));
     shortcutsLayout->addWidget(m_toggleShortcutEdit);
     shortcutsLayout->addWidget(new QLabel(QStringLiteral("Stop:"), this));
     shortcutsLayout->addWidget(m_stopShortcutEdit);
     shortcutsLayout->addWidget(m_applyShortcutsButton);
+    shortcutsLayout->addWidget(m_configureShortcutsButton);
 
     mainLayout->addWidget(shortcutsGroup);
 
@@ -185,12 +190,20 @@ void MainWindow::setupUi() {
 
     m_startButton = new QPushButton(QStringLiteral("Start"), this);
     m_startButton->setFixedHeight(38);
-    m_startButton->setStyleSheet(QStringLiteral("font-weight: bold; background-color: #27ae60; color: white; border-radius: 4px;"));
+    m_startButton->setStyleSheet(QStringLiteral(
+        "QPushButton { font-weight: bold; background-color: #27ae60; color: white; border-radius: 4px; padding: 6px; }"
+        "QPushButton:disabled { background-color: #4b6584; color: #a5b1c2; }"
+        "QPushButton:hover:!disabled { background-color: #2ecc71; }"
+    ));
 
     m_stopButton = new QPushButton(QStringLiteral("Stop"), this);
     m_stopButton->setFixedHeight(38);
     m_stopButton->setEnabled(false);
-    m_stopButton->setStyleSheet(QStringLiteral("font-weight: bold; background-color: #c0392b; color: white; border-radius: 4px;"));
+    m_stopButton->setStyleSheet(QStringLiteral(
+        "QPushButton { font-weight: bold; background-color: #c0392b; color: white; border-radius: 4px; padding: 6px; }"
+        "QPushButton:disabled { background-color: #4b6584; color: #a5b1c2; }"
+        "QPushButton:hover:!disabled { background-color: #e74c3c; }"
+    ));
 
     buttonsLayout->addWidget(m_startButton);
     buttonsLayout->addWidget(m_stopButton);
@@ -229,6 +242,7 @@ void MainWindow::setupUi() {
     connect(m_startButton, &QPushButton::clicked, this, &MainWindow::onStartClicked);
     connect(m_stopButton, &QPushButton::clicked, this, &MainWindow::onStopClicked);
     connect(m_applyShortcutsButton, &QPushButton::clicked, this, &MainWindow::onApplyShortcutsClicked);
+    connect(m_configureShortcutsButton, &QPushButton::clicked, m_portalManager, &PortalManager::configureShortcuts);
 }
 
 void MainWindow::loadSettings() {
@@ -273,12 +287,50 @@ void MainWindow::saveSettings() {
     m_settings->sync();
 }
 
-void MainWindow::onApplyShortcutsClicked() {
-    QString toggleKey = m_toggleShortcutEdit->keySequence().toString();
-    QString stopKey = m_stopShortcutEdit->keySequence().toString();
+bool MainWindow::isSequenceValidForGlobal(const QKeySequence& seq, QString& reason) {
+    if (seq.isEmpty()) {
+        reason = QStringLiteral("Le raccourci ne peut pas être vide.");
+        return false;
+    }
+    QKeyCombination comb = seq[0];
+    auto mods = comb.keyboardModifiers();
+    auto key = comb.key();
 
-    if (toggleKey.isEmpty()) toggleKey = QStringLiteral("F6");
-    if (stopKey.isEmpty()) stopKey = QStringLiteral("F7");
+    bool isFunctionKey = (key >= Qt::Key_F1 && key <= Qt::Key_F35) ||
+                         key == Qt::Key_Pause || key == Qt::Key_Print;
+    bool hasModifier = mods.testFlag(Qt::ControlModifier) ||
+                       mods.testFlag(Qt::AltModifier) ||
+                       mods.testFlag(Qt::MetaModifier);
+
+    if (key == Qt::Key_NumLock || key == Qt::Key_CapsLock || key == Qt::Key_ScrollLock) {
+        reason = QStringLiteral("Les touches de verrouillage (Verr num, Verr maj) ne sont pas autorisées comme déclencheurs.");
+        return false;
+    }
+
+    if (!isFunctionKey && !hasModifier) {
+        reason = QStringLiteral("Un raccourci global nécessite une touche de fonction (F1-F12) ou un modificateur (ex: Ctrl+O, Alt+S, Meta+O). Les lettres et signes seuls ne sont pas interceptés globalement.");
+        return false;
+    }
+
+    return true;
+}
+
+void MainWindow::onApplyShortcutsClicked() {
+    auto toggleSeq = m_toggleShortcutEdit->keySequence();
+    auto stopSeq = m_stopShortcutEdit->keySequence();
+
+    QString reason;
+    if (!isSequenceValidForGlobal(toggleSeq, reason)) {
+        QMessageBox::warning(this, QStringLiteral("Raccourci Démarrer / Toggle invalide"), reason);
+        return;
+    }
+    if (!isSequenceValidForGlobal(stopSeq, reason)) {
+        QMessageBox::warning(this, QStringLiteral("Raccourci Arrêt invalide"), reason);
+        return;
+    }
+
+    QString toggleKey = toggleSeq.toString();
+    QString stopKey = stopSeq.toString();
 
     m_settings->setToggleShortcut(toggleKey);
     m_settings->setStopShortcut(stopKey);
@@ -286,6 +338,10 @@ void MainWindow::onApplyShortcutsClicked() {
 
     m_startButton->setText(QStringLiteral("Start (%1)").arg(toggleKey));
     m_stopButton->setText(QStringLiteral("Stop (%1)").arg(stopKey));
+    m_startButton->update();
+    m_startButton->repaint();
+    m_stopButton->update();
+    m_stopButton->repaint();
 
     m_portalManager->rebindShortcuts(toggleKey, stopKey);
 }
@@ -293,6 +349,10 @@ void MainWindow::onApplyShortcutsClicked() {
 void MainWindow::onEffectiveShortcutsUpdated(const QString& toggleKey, const QString& stopKey) {
     m_startButton->setText(QStringLiteral("Start (%1)").arg(toggleKey));
     m_stopButton->setText(QStringLiteral("Stop (%1)").arg(stopKey));
+    m_startButton->update();
+    m_startButton->repaint();
+    m_stopButton->update();
+    m_stopButton->repaint();
 }
 
 std::chrono::milliseconds MainWindow::calculateTotalInterval() const {
@@ -397,6 +457,10 @@ void MainWindow::onShortcutsStateChanged(bool active, const QString& details) {
 void MainWindow::onRunStarted() {
     m_startButton->setEnabled(false);
     m_stopButton->setEnabled(true);
+    m_startButton->update();
+    m_startButton->repaint();
+    m_stopButton->update();
+    m_stopButton->repaint();
     m_trayController->setRunning(true);
     m_runStatusLabel->setText(QStringLiteral("Run: Démarré..."));
     m_runStatusLabel->setStyleSheet(QStringLiteral("color: #2980b9; font-weight: bold;"));
@@ -405,6 +469,10 @@ void MainWindow::onRunStarted() {
 void MainWindow::onRunFinished(ClickController::StopReason reason) {
     m_startButton->setEnabled(true);
     m_stopButton->setEnabled(false);
+    m_startButton->update();
+    m_startButton->repaint();
+    m_stopButton->update();
+    m_stopButton->repaint();
     m_trayController->setRunning(false);
 
     QString reasonStr;

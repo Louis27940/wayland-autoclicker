@@ -2,6 +2,9 @@
 #include <QCoreApplication>
 #include <QDBusReply>
 #include <QDebug>
+#include <QKeySequence>
+#include <QKeyCombination>
+#include <QProcess>
 
 QDBusArgument &operator<<(QDBusArgument &argument, const PortalShortcut &shortcut) {
     argument.beginStructure();
@@ -363,21 +366,125 @@ void PortalManager::initGlobalShortcuts(const QString& toggleTrigger, const QStr
     }
 }
 
+QString PortalManager::formatTriggerForXdg(const QString& trigger) {
+    if (trigger.isEmpty()) return QStringLiteral("F6");
+    QKeySequence seq(trigger);
+    if (seq.isEmpty()) return trigger;
+
+    QKeyCombination comb = seq[0];
+    auto mods = comb.keyboardModifiers();
+    auto key = comb.key();
+
+    QStringList parts;
+    if (mods.testFlag(Qt::ControlModifier)) parts << QStringLiteral("CTRL");
+    if (mods.testFlag(Qt::AltModifier)) parts << QStringLiteral("ALT");
+    if (mods.testFlag(Qt::ShiftModifier)) parts << QStringLiteral("SHIFT");
+    if (mods.testFlag(Qt::MetaModifier)) parts << QStringLiteral("LOGO");
+
+    QString keyName;
+    if (key >= Qt::Key_F1 && key <= Qt::Key_F35) {
+        keyName = QStringLiteral("F%1").arg(key - Qt::Key_F1 + 1);
+    } else if (key >= Qt::Key_A && key <= Qt::Key_Z) {
+        keyName = QChar('a' + (key - Qt::Key_A));
+    } else if (key >= Qt::Key_0 && key <= Qt::Key_9) {
+        keyName = QChar('0' + (key - Qt::Key_0));
+    } else {
+        switch (key) {
+            case Qt::Key_Space: keyName = QStringLiteral("space"); break;
+            case Qt::Key_Tab: keyName = QStringLiteral("Tab"); break;
+            case Qt::Key_Return:
+            case Qt::Key_Enter: keyName = QStringLiteral("Return"); break;
+            case Qt::Key_Escape: keyName = QStringLiteral("Escape"); break;
+            case Qt::Key_Backspace: keyName = QStringLiteral("BackSpace"); break;
+            case Qt::Key_Delete: keyName = QStringLiteral("Delete"); break;
+            case Qt::Key_Insert: keyName = QStringLiteral("Insert"); break;
+            case Qt::Key_Home: keyName = QStringLiteral("Home"); break;
+            case Qt::Key_End: keyName = QStringLiteral("End"); break;
+            case Qt::Key_PageUp: keyName = QStringLiteral("Page_Up"); break;
+            case Qt::Key_PageDown: keyName = QStringLiteral("Page_Down"); break;
+            case Qt::Key_Pause: keyName = QStringLiteral("Pause"); break;
+            case Qt::Key_Print: keyName = QStringLiteral("Print"); break;
+            default:
+                return trigger;
+        }
+    }
+
+    parts << keyName;
+    return parts.join(QLatin1Char('+'));
+}
+
 void PortalManager::rebindShortcuts(const QString& toggleTrigger, const QString& stopTrigger) {
     if (!toggleTrigger.isEmpty()) m_requestedToggleTrigger = toggleTrigger;
     if (!stopTrigger.isEmpty()) m_requestedStopTrigger = stopTrigger;
 
-    bool hasSession = false;
+    // 1. Unregister previously bound actions in KGlobalAccel to clear any stale Plasma state
+    QDBusMessage unregToggle = QDBusMessage::createMethodCall(
+        QStringLiteral("org.kde.kglobalaccel"),
+        QStringLiteral("/kglobalaccel"),
+        QStringLiteral("org.kde.KGlobalAccel"),
+        QStringLiteral("unregister")
+    );
+    unregToggle << QStringLiteral("fr.perso.Autoclicker") << QStringLiteral("toggle");
+    QDBusConnection::sessionBus().call(unregToggle);
+
+    QDBusMessage unregStop = QDBusMessage::createMethodCall(
+        QStringLiteral("org.kde.kglobalaccel"),
+        QStringLiteral("/kglobalaccel"),
+        QStringLiteral("org.kde.KGlobalAccel"),
+        QStringLiteral("unregister")
+    );
+    unregStop << QStringLiteral("fr.perso.Autoclicker") << QStringLiteral("stop");
+    QDBusConnection::sessionBus().call(unregStop);
+
+    // 2. Close current shortcuts portal session if active
+    QDBusObjectPath oldSession;
     {
         std::lock_guard<std::mutex> lock(m_sessionMutex);
-        hasSession = !m_shortcutsSessionPath.path().isEmpty();
+        oldSession = m_shortcutsSessionPath;
+        m_shortcutsSessionPath = QDBusObjectPath{};
+        m_shortcutsActive = false;
     }
 
-    if (hasSession) {
-        requestBindShortcuts();
-    } else {
-        initGlobalShortcuts(m_requestedToggleTrigger, m_requestedStopTrigger);
+    if (!oldSession.path().isEmpty()) {
+        QDBusMessage closeMsg = QDBusMessage::createMethodCall(
+            QStringLiteral("org.freedesktop.portal.Desktop"),
+            oldSession.path(),
+            QStringLiteral("org.freedesktop.portal.Session"),
+            QStringLiteral("Close")
+        );
+        QDBusConnection::sessionBus().call(closeMsg);
     }
+
+    // 3. Create fresh portal session and bind with updated triggers
+    initGlobalShortcuts(m_requestedToggleTrigger, m_requestedStopTrigger);
+}
+
+void PortalManager::configureShortcuts() {
+    QDBusObjectPath scSession;
+    {
+        std::lock_guard<std::mutex> lock(m_sessionMutex);
+        scSession = m_shortcutsSessionPath;
+    }
+
+    if (!scSession.path().isEmpty()) {
+        QVariantMap options;
+        QDBusMessage msg = QDBusMessage::createMethodCall(
+            QStringLiteral("org.freedesktop.portal.Desktop"),
+            QStringLiteral("/org/freedesktop/portal/desktop"),
+            QStringLiteral("org.freedesktop.portal.GlobalShortcuts"),
+            QStringLiteral("ConfigureShortcuts")
+        );
+        msg << QVariant::fromValue(scSession)
+            << QStringLiteral("") // Parent window
+            << options;
+        QDBusMessage reply = QDBusConnection::sessionBus().call(msg);
+        if (reply.type() != QDBusMessage::ErrorMessage) {
+            return;
+        }
+    }
+
+    // Fallback: directly launch KDE Shortcuts settings
+    QProcess::startDetached(QStringLiteral("kcmshell6"), {QStringLiteral("kcm_keys")});
 }
 
 void PortalManager::requestBindShortcuts() {
@@ -398,14 +505,14 @@ void PortalManager::requestBindShortcuts() {
         QStringLiteral("toggle"),
         QVariantMap{
             {QStringLiteral("description"), QStringLiteral("Démarrer / Arrêter l'autoclicker")},
-            {QStringLiteral("preferred_trigger"), m_requestedToggleTrigger}
+            {QStringLiteral("preferred_trigger"), formatTriggerForXdg(m_requestedToggleTrigger)}
         }
     });
     shortcutsList.append(PortalShortcut{
         QStringLiteral("stop"),
         QVariantMap{
             {QStringLiteral("description"), QStringLiteral("Arrêt immédiat de l'autoclicker")},
-            {QStringLiteral("preferred_trigger"), m_requestedStopTrigger}
+            {QStringLiteral("preferred_trigger"), formatTriggerForXdg(m_requestedStopTrigger)}
         }
     });
 
@@ -488,28 +595,48 @@ void PortalManager::handleGlobalShortcutsResponse(uint responseCode, const QVari
             }
         }
 
+        bool toggleValid = (toggleEffective != QStringLiteral("none") && !toggleEffective.isEmpty());
+        bool stopValid = (stopEffective != QStringLiteral("none") && !stopEffective.isEmpty());
+
         {
             std::lock_guard<std::mutex> lock(m_sessionMutex);
-            m_shortcutsActive = true;
+            m_shortcutsActive = (toggleValid || stopValid);
             m_toggleShortcutDesc = toggleEffective;
             m_stopShortcutDesc = stopEffective;
         }
 
-        // Connect to Activated signal
-        QDBusConnection::sessionBus().connect(
-            QStringLiteral("org.freedesktop.portal.Desktop"),
-            QStringLiteral("/org/freedesktop/portal/desktop"),
-            QStringLiteral("org.freedesktop.portal.GlobalShortcuts"),
-            QStringLiteral("Activated"),
-            this,
-            SLOT(handleShortcutActivated(QDBusObjectPath, QString, qulonglong, QVariantMap))
-        );
+        // Connect to Activated signal once to prevent duplicate triggers across rebinds
+        if (!m_shortcutSignalConnected) {
+            bool ok = QDBusConnection::sessionBus().connect(
+                QStringLiteral("org.freedesktop.portal.Desktop"),
+                QStringLiteral("/org/freedesktop/portal/desktop"),
+                QStringLiteral("org.freedesktop.portal.GlobalShortcuts"),
+                QStringLiteral("Activated"),
+                this,
+                SLOT(handleShortcutActivated(QDBusObjectPath, QString, qulonglong, QVariantMap))
+            );
+            if (ok) {
+                m_shortcutSignalConnected = true;
+            }
+        }
 
         emit effectiveShortcutsUpdated(m_toggleShortcutDesc, m_stopShortcutDesc);
-        emit shortcutsStateChanged(
-            true,
-            QStringLiteral("Raccourcis globaux actifs (%1 / %2)").arg(m_toggleShortcutDesc, m_stopShortcutDesc)
-        );
+        if (toggleValid && stopValid) {
+            emit shortcutsStateChanged(
+                true,
+                QStringLiteral("Raccourcis globaux actifs (%1 / %2)").arg(m_toggleShortcutDesc, m_stopShortcutDesc)
+            );
+        } else if (toggleValid || stopValid) {
+            emit shortcutsStateChanged(
+                true,
+                QStringLiteral("Raccourcis partiels (%1 / %2)").arg(m_toggleShortcutDesc, m_stopShortcutDesc)
+            );
+        } else {
+            emit shortcutsStateChanged(
+                false,
+                QStringLiteral("Aucun raccourci actif (définis sur 'none')")
+            );
+        }
     }
 }
 

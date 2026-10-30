@@ -1,4 +1,4 @@
-find_package(Qt6 REQUIRED COMPONENTS Test DBus)
+find_package(Qt6 REQUIRED COMPONENTS Test DBus Gui)
 
 # Test TimingPolicy
 add_executable(tst_TimingPolicy
@@ -30,5 +30,5 @@ add_executable(tst_DBusSignatures
     ../src/PortalManager.hpp
 )
 target_include_directories(tst_DBusSignatures PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
-target_link_libraries(tst_DBusSignatures PRIVATE Qt6::Core Qt6::DBus Qt6::Test)
+target_link_libraries(tst_DBusSignatures PRIVATE Qt6::Core Qt6::Gui Qt6::DBus Qt6::Test)
 add_test(NAME tst_DBusSignatures COMMAND tst_DBusSignatures)

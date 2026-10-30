@@ -24,6 +24,7 @@ private slots:
     void testNotifyPointerButtonSignature();
     void testNotifyPointerMotionRelativeSignature();
     void testBindShortcutsSignature();
+    void testFormatTriggerForXdg();
 };
 
 void tst_DBusSignatures::testNotifyPointerButtonSignature() {
@@ -95,6 +96,14 @@ void tst_DBusSignatures::testBindShortcutsSignature() {
 
     // Strict D-Bus signature: o = object path, a(sa{sv}) = array of shortcut structs, s = parent window, a{sv} = options
     QCOMPARE(computeArgumentsSignature(msg), QStringLiteral("oa(sa{sv})sa{sv}"));
+}
+
+void tst_DBusSignatures::testFormatTriggerForXdg() {
+    QCOMPARE(PortalManager::formatTriggerForXdg(QStringLiteral("F6")), QStringLiteral("F6"));
+    QCOMPARE(PortalManager::formatTriggerForXdg(QStringLiteral("F7")), QStringLiteral("F7"));
+    QCOMPARE(PortalManager::formatTriggerForXdg(QStringLiteral("Ctrl+F6")), QStringLiteral("CTRL+F6"));
+    QCOMPARE(PortalManager::formatTriggerForXdg(QStringLiteral("Meta+F7")), QStringLiteral("LOGO+F7"));
+    QCOMPARE(PortalManager::formatTriggerForXdg(QStringLiteral("Ctrl+Alt+S")), QStringLiteral("CTRL+ALT+s"));
 }
 
 QTEST_MAIN(tst_DBusSignatures)
