@@ -24,6 +24,7 @@ set(SOURCES
     src/Settings.cpp
     src/TrayController.cpp
     src/MainWindow.cpp
+    src/DebugDialog.cpp
 )
 
 set(HEADERS
@@ -34,6 +35,7 @@ set(HEADERS
     src/Settings.hpp
     src/TrayController.hpp
     src/MainWindow.hpp
+    src/DebugDialog.hpp
 )
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)

@@ -64,6 +64,10 @@ bool ClickController::isRunning() const {
     return m_running.load(std::memory_order_relaxed);
 }
 
+uint64_t ClickController::actionCount() const {
+    return m_actionCount.load(std::memory_order_relaxed);
+}
+
 void ClickController::start() {
     if (m_running.load(std::memory_order_relaxed)) {
         return;
@@ -225,6 +229,7 @@ void ClickController::workerLoop(std::stop_token stopToken) {
             if (pressedButton.has_value()) {
                 m_injector->sendButton(*pressedButton, false);
                 pressedButton.reset();
+                m_actionCount.fetch_add(1, std::memory_order_relaxed);
             }
         } else {
             // Mode::MicroMovement: relative dx = +1, wait short duration, relative dx = -1
@@ -258,6 +263,7 @@ void ClickController::workerLoop(std::stop_token stopToken) {
             if (pendingMotionDx != 0.0) {
                 m_injector->sendMotion(-pendingMotionDx, 0.0);
                 pendingMotionDx = 0.0;
+                m_actionCount.fetch_add(1, std::memory_order_relaxed);
             }
         }
 

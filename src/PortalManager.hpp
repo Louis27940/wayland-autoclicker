@@ -52,6 +52,11 @@ public:
     [[nodiscard]] bool areShortcutsActive() const;
     [[nodiscard]] QString toggleShortcutDescription() const;
     [[nodiscard]] QString stopShortcutDescription() const;
+    [[nodiscard]] QString remoteDesktopSessionPath() const;
+    [[nodiscard]] QString shortcutsSessionPath() const;
+    [[nodiscard]] QString lastRestoreToken() const;
+    [[nodiscard]] QString requestedToggleTrigger() const;
+    [[nodiscard]] QString requestedStopTrigger() const;
 
     static QString formatTriggerForXdg(const QString& trigger);
 

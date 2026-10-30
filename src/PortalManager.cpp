@@ -71,6 +71,31 @@ QString PortalManager::stopShortcutDescription() const {
     return m_stopShortcutDesc;
 }
 
+QString PortalManager::remoteDesktopSessionPath() const {
+    std::lock_guard<std::mutex> lock(m_sessionMutex);
+    return m_remoteDesktopSessionPath.path();
+}
+
+QString PortalManager::shortcutsSessionPath() const {
+    std::lock_guard<std::mutex> lock(m_sessionMutex);
+    return m_shortcutsSessionPath.path();
+}
+
+QString PortalManager::lastRestoreToken() const {
+    std::lock_guard<std::mutex> lock(m_sessionMutex);
+    return m_lastRestoreToken;
+}
+
+QString PortalManager::requestedToggleTrigger() const {
+    std::lock_guard<std::mutex> lock(m_sessionMutex);
+    return m_requestedToggleTrigger;
+}
+
+QString PortalManager::requestedStopTrigger() const {
+    std::lock_guard<std::mutex> lock(m_sessionMutex);
+    return m_requestedStopTrigger;
+}
+
 QString PortalManager::generateToken(const QString& prefix) {
     const auto pid = QCoreApplication::applicationPid();
     const auto counter = m_tokenCounter.fetch_add(1);

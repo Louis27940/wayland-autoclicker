@@ -15,6 +15,9 @@
 #include "Settings.hpp"
 #include "TrayController.hpp"
 
+class TrayController;
+class DebugDialog;
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
@@ -46,6 +49,7 @@ private slots:
     void onCountdownTick(int remaining);
     void onAutoStopTick(int remaining);
     void onInjectionError(const QString& error);
+    void onShowDebugInfoClicked();
 
 private:
     void setupUi();
@@ -89,7 +93,7 @@ private:
     QPushButton* m_stopButton{nullptr};
 
     // UI Widgets - Status Footer
-    QLabel* m_portalStatusLabel{nullptr};
-    QLabel* m_shortcutsStatusLabel{nullptr};
     QLabel* m_runStatusLabel{nullptr};
+    QPushButton* m_debugInfoButton{nullptr};
+    DebugDialog* m_debugDialog{nullptr};
 };

@@ -50,6 +50,7 @@ public:
     [[nodiscard]] std::chrono::seconds startCountdown() const;
 
     [[nodiscard]] bool isRunning() const;
+    [[nodiscard]] uint64_t actionCount() const;
 
 public slots:
     void start();
@@ -78,6 +79,7 @@ private:
     std::atomic<int64_t> m_countdownSec{TimingPolicy::DefaultCountdown.count()};
 
     std::atomic<bool> m_running{false};
+    std::atomic<uint64_t> m_actionCount{0};
     std::atomic<StopReason> m_lastStopReason{StopReason::Manual};
     int m_consecutiveFailures{0};
     static constexpr int ConsecutiveFailureThreshold = 3;

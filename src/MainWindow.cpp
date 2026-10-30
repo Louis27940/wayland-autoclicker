@@ -1,4 +1,5 @@
 #include "MainWindow.hpp"
+#include "DebugDialog.hpp"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -210,18 +211,17 @@ void MainWindow::setupUi() {
     mainLayout->addLayout(buttonsLayout);
 
     // 5. Status Footer
-    auto* statusGroup = new QGroupBox(QStringLiteral("Status & Diagnostics"), this);
-    auto* statusLayout = new QVBoxLayout(statusGroup);
-    statusLayout->setSpacing(4);
-    statusLayout->setContentsMargins(8, 8, 8, 8);
+    auto* statusGroup = new QGroupBox(QStringLiteral("Status"), this);
+    auto* statusLayout = new QHBoxLayout(statusGroup);
+    statusLayout->setSpacing(8);
+    statusLayout->setContentsMargins(10, 8, 10, 8);
 
-    m_portalStatusLabel = new QLabel(QStringLiteral("RemoteDesktop: Initialisation..."), this);
-    m_shortcutsStatusLabel = new QLabel(QStringLiteral("Shortcuts: Initialisation..."), this);
     m_runStatusLabel = new QLabel(QStringLiteral("Run: Inactif"), this);
+    m_debugInfoButton = new QPushButton(QStringLiteral("Show Debug Info"), this);
+    m_debugInfoButton->setFixedWidth(130);
 
-    statusLayout->addWidget(m_portalStatusLabel);
-    statusLayout->addWidget(m_shortcutsStatusLabel);
-    statusLayout->addWidget(m_runStatusLabel);
+    statusLayout->addWidget(m_runStatusLabel, 1);
+    statusLayout->addWidget(m_debugInfoButton, 0, Qt::AlignRight);
 
     mainLayout->addWidget(statusGroup);
     setCentralWidget(centralWidget);
@@ -243,6 +243,7 @@ void MainWindow::setupUi() {
     connect(m_stopButton, &QPushButton::clicked, this, &MainWindow::onStopClicked);
     connect(m_applyShortcutsButton, &QPushButton::clicked, this, &MainWindow::onApplyShortcutsClicked);
     connect(m_configureShortcutsButton, &QPushButton::clicked, m_portalManager, &PortalManager::configureShortcuts);
+    connect(m_debugInfoButton, &QPushButton::clicked, this, &MainWindow::onShowDebugInfoClicked);
 }
 
 void MainWindow::loadSettings() {
@@ -434,24 +435,28 @@ void MainWindow::onStopClicked() {
 }
 
 void MainWindow::onPortalStateChanged(PortalManager::PortalState state, const QString& message) {
-    m_portalStatusLabel->setText(QStringLiteral("RemoteDesktop: %1 (%2)").arg(m_portalManager->stateString(), message));
-    if (state == PortalManager::PortalState::Active) {
-        m_portalStatusLabel->setStyleSheet(QStringLiteral("color: #27ae60;"));
-    } else if (state == PortalManager::PortalState::Error || state == PortalManager::PortalState::Refused) {
-        m_portalStatusLabel->setStyleSheet(QStringLiteral("color: #c0392b;"));
-    } else {
-        m_portalStatusLabel->setStyleSheet(QStringLiteral("color: #e67e22;"));
+    Q_UNUSED(state);
+    Q_UNUSED(message);
+    if (m_debugDialog && m_debugDialog->isVisible()) {
+        m_debugDialog->refreshInfo();
     }
 }
 
 void MainWindow::onShortcutsStateChanged(bool active, const QString& details) {
-    if (active) {
-        m_shortcutsStatusLabel->setText(QStringLiteral("Raccourcis: Actifs (%1)").arg(details));
-        m_shortcutsStatusLabel->setStyleSheet(QStringLiteral("color: #27ae60;"));
-    } else {
-        m_shortcutsStatusLabel->setText(QStringLiteral("Raccourcis: Indisponibles (%1)").arg(details));
-        m_shortcutsStatusLabel->setStyleSheet(QStringLiteral("color: #7f8c8d;"));
+    Q_UNUSED(active);
+    Q_UNUSED(details);
+    if (m_debugDialog && m_debugDialog->isVisible()) {
+        m_debugDialog->refreshInfo();
     }
+}
+
+void MainWindow::onShowDebugInfoClicked() {
+    if (!m_debugDialog) {
+        m_debugDialog = new DebugDialog(m_portalManager, m_clickController, this);
+    }
+    m_debugDialog->show();
+    m_debugDialog->raise();
+    m_debugDialog->activateWindow();
 }
 
 void MainWindow::onRunStarted() {

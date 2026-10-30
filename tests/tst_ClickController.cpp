@@ -49,6 +49,9 @@ void tst_ClickController::testNormalClickCycle() {
     auto pressDur = std::chrono::duration_cast<std::chrono::milliseconds>(events[1].time - events[0].time).count();
     QVERIFY(pressDur >= 15);
     QVERIFY(pressDur <= 50);
+
+    // Verify action counter
+    QVERIFY(controller.actionCount() >= 1);
 }
 
 void tst_ClickController::testRememberedButtonPressedRelease() {
