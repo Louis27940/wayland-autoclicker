@@ -5,6 +5,7 @@
 #include <QKeySequence>
 #include <QKeyCombination>
 #include <QProcess>
+#include <QRandomGenerator>
 
 QDBusArgument &operator<<(QDBusArgument &argument, const PortalShortcut &shortcut) {
     argument.beginStructure();
@@ -97,9 +98,8 @@ QString PortalManager::requestedStopTrigger() const {
 }
 
 QString PortalManager::generateToken(const QString& prefix) {
-    const auto pid = QCoreApplication::applicationPid();
-    const auto counter = m_tokenCounter.fetch_add(1);
-    return QStringLiteral("%1_%2_%3").arg(prefix).arg(pid).arg(counter);
+    const quint64 randVal = QRandomGenerator::securelySeeded().generate64();
+    return QStringLiteral("%1_%2").arg(prefix, QString::number(randVal, 16));
 }
 
 QString PortalManager::expectedRequestPath(const QString& token) const {

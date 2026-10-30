@@ -59,6 +59,7 @@ public:
     [[nodiscard]] QString requestedStopTrigger() const;
 
     static QString formatTriggerForXdg(const QString& trigger);
+    static QString generateToken(const QString& prefix);
 
 public slots:
     void initRemoteDesktopSession(const QString& savedRestoreToken = QString{});
@@ -95,7 +96,6 @@ private slots:
     void handleShortcutsSessionClosed();
 
 private:
-    QString generateToken(const QString& prefix);
     QString expectedRequestPath(const QString& token) const;
 
     void requestSelectDevices();
@@ -120,6 +120,4 @@ private:
     QString m_currentRdRequestPath;
     QString m_currentScRequestToken;
     QString m_currentScRequestPath;
-
-    std::atomic<uint64_t> m_tokenCounter{1};
 };

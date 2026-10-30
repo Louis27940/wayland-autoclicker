@@ -47,5 +47,7 @@ public:
     void sync();
 
 private:
+    void ensureSecureFilePermissions();
+
     QSettings m_settings;
 };

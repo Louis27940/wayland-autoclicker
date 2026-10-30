@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.21)
 project(WaylandAutoclicker VERSION 2.0.0 LANGUAGES CXX)
 
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Choose build type" FORCE)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -47,6 +51,18 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
         Qt6::Core
         Qt6::Widgets
         Qt6::DBus
+    )
+
+    target_compile_options(wayland-autoclicker PRIVATE
+        -Wall -Wextra
+        -fstack-protector-strong
+        $<$<NOT:$<CONFIG:Debug>>:-O2 -D_FORTIFY_SOURCE=2>
+        -Wformat -Wformat-security
+    )
+
+    target_link_options(wayland-autoclicker PRIVATE
+        -Wl,-z,relro,-z,now
+        -Wl,-z,noexecstack
     )
 
     install(TARGETS wayland-autoclicker

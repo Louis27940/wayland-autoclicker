@@ -17,7 +17,7 @@ void posixSignalHandler(int sig) {
     const int savedErrno = errno;
     char sigByte = static_cast<char>(sig);
     // Write 1 byte to the non-blocking socket pair (async-signal-safe)
-    ::write(g_signalSocketPair[0], &sigByte, sizeof(sigByte));
+    [[maybe_unused]] const auto bytesWritten = ::write(g_signalSocketPair[0], &sigByte, sizeof(sigByte));
     errno = savedErrno;
 }
 
@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
     QObject::connect(&signalNotifier, &QSocketNotifier::activated, [&]() {
         signalNotifier.setEnabled(false);
         char sigByte = 0;
-        ::read(g_signalSocketPair[1], &sigByte, sizeof(sigByte));
+        [[maybe_unused]] const auto bytesRead = ::read(g_signalSocketPair[1], &sigByte, sizeof(sigByte));
 
         // Defined shutdown sequence (§8, rule 5)
         // 1. Request stop of the worker and join it

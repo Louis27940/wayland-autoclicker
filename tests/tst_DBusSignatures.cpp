@@ -3,6 +3,7 @@
 #include <QDBusObjectPath>
 #include <QDBusMetaType>
 #include <QVariantMap>
+#include <QSet>
 #include "PortalManager.hpp"
 
 class tst_DBusSignatures : public QObject {
@@ -25,6 +26,7 @@ private slots:
     void testNotifyPointerMotionRelativeSignature();
     void testBindShortcutsSignature();
     void testFormatTriggerForXdg();
+    void testGenerateTokenSecurity();
 };
 
 void tst_DBusSignatures::testNotifyPointerButtonSignature() {
@@ -104,6 +106,23 @@ void tst_DBusSignatures::testFormatTriggerForXdg() {
     QCOMPARE(PortalManager::formatTriggerForXdg(QStringLiteral("Ctrl+F6")), QStringLiteral("CTRL+F6"));
     QCOMPARE(PortalManager::formatTriggerForXdg(QStringLiteral("Meta+F7")), QStringLiteral("LOGO+F7"));
     QCOMPARE(PortalManager::formatTriggerForXdg(QStringLiteral("Ctrl+Alt+S")), QStringLiteral("CTRL+ALT+s"));
+}
+
+void tst_DBusSignatures::testGenerateTokenSecurity() {
+    QSet<QString> tokens;
+    const int count = 100;
+    for (int i = 0; i < count; ++i) {
+        const QString token = PortalManager::generateToken(QStringLiteral("rd"));
+        QVERIFY(token.startsWith(QStringLiteral("rd_")));
+        const QString hexPart = token.mid(3);
+        QVERIFY(!hexPart.isEmpty());
+        bool ok = false;
+        hexPart.toULongLong(&ok, 16);
+        QVERIFY(ok);
+        QVERIFY(!tokens.contains(token));
+        tokens.insert(token);
+    }
+    QCOMPARE(tokens.size(), count);
 }
 
 QTEST_MAIN(tst_DBusSignatures)

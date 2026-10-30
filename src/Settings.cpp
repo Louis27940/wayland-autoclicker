@@ -1,9 +1,14 @@
 #include "Settings.hpp"
+#include <QFile>
+#include <QFileInfo>
+#include <QDir>
 #include <linux/input-event-codes.h>
 
 Settings::Settings(QObject* parent)
     : QObject(parent),
-      m_settings(QStringLiteral("Perso"), QStringLiteral("WaylandAutoclicker")) {}
+      m_settings(QStringLiteral("Perso"), QStringLiteral("WaylandAutoclicker")) {
+    ensureSecureFilePermissions();
+}
 
 std::chrono::milliseconds Settings::interval() const {
     const int val = m_settings.value(QStringLiteral("preferences/interval_ms"), 1000).toInt();
@@ -89,9 +94,26 @@ QString Settings::restoreToken() const {
 
 void Settings::setRestoreToken(const QString& token) {
     m_settings.setValue(QStringLiteral("portal/restore_token"), token);
-    m_settings.sync();
+    ensureSecureFilePermissions();
 }
 
 void Settings::sync() {
+    ensureSecureFilePermissions();
+}
+
+void Settings::ensureSecureFilePermissions() {
     m_settings.sync();
+    const QString fileName = m_settings.fileName();
+    if (!fileName.isEmpty()) {
+        QFile file(fileName);
+        if (file.exists()) {
+            file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+        }
+        QFileInfo info(fileName);
+        QDir dir = info.dir();
+        if (dir.exists()) {
+            QFile dirFile(dir.absolutePath());
+            dirFile.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+        }
+    }
 }
