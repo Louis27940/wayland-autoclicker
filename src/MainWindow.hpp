@@ -33,6 +33,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private slots:
     void onIntervalSpinBoxChanged();
@@ -40,6 +41,10 @@ private slots:
     void onStartClicked();
     void onStopClicked();
     void onApplyShortcutsClicked();
+    void onToggleShortcutChanged(const QKeySequence& seq);
+    void onStopShortcutChanged(const QKeySequence& seq);
+    void onToggleEditingFinished();
+    void onStopEditingFinished();
 
     void onPortalStateChanged(PortalManager::PortalState state, const QString& message);
     void onShortcutsStateChanged(bool active, const QString& details);
@@ -58,6 +63,10 @@ private:
     void updateJitterMax();
     std::chrono::milliseconds calculateTotalInterval() const;
     void setSpinBoxesFromInterval(std::chrono::milliseconds interval);
+
+    void validateShortcutInputs();
+    QString m_lastValidToggle{QStringLiteral("F6")};
+    QString m_lastValidStop{QStringLiteral("F7")};
 
     PortalManager* m_portalManager{nullptr};
     ClickController* m_clickController{nullptr};

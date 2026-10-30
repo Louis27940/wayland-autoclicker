@@ -6,6 +6,8 @@
 #include <QFormLayout>
 #include <QMessageBox>
 #include <QApplication>
+#include <QKeyEvent>
+#include <QToolTip>
 #include <linux/input-event-codes.h>
 
 MainWindow::MainWindow(
@@ -183,6 +185,9 @@ void MainWindow::setupUi() {
     shortcutsLayout->addWidget(m_applyShortcutsButton);
     shortcutsLayout->addWidget(m_configureShortcutsButton);
 
+    m_toggleShortcutEdit->installEventFilter(this);
+    m_stopShortcutEdit->installEventFilter(this);
+
     mainLayout->addWidget(shortcutsGroup);
 
     // 4. Action Buttons
@@ -244,6 +249,11 @@ void MainWindow::setupUi() {
     connect(m_applyShortcutsButton, &QPushButton::clicked, this, &MainWindow::onApplyShortcutsClicked);
     connect(m_configureShortcutsButton, &QPushButton::clicked, m_portalManager, &PortalManager::configureShortcuts);
     connect(m_debugInfoButton, &QPushButton::clicked, this, &MainWindow::onShowDebugInfoClicked);
+
+    connect(m_toggleShortcutEdit, &QKeySequenceEdit::keySequenceChanged, this, &MainWindow::onToggleShortcutChanged);
+    connect(m_stopShortcutEdit, &QKeySequenceEdit::keySequenceChanged, this, &MainWindow::onStopShortcutChanged);
+    connect(m_toggleShortcutEdit, &QKeySequenceEdit::editingFinished, this, &MainWindow::onToggleEditingFinished);
+    connect(m_stopShortcutEdit, &QKeySequenceEdit::editingFinished, this, &MainWindow::onStopEditingFinished);
 }
 
 void MainWindow::loadSettings() {
@@ -262,13 +272,34 @@ void MainWindow::loadSettings() {
 
     QString toggleKey = m_settings->toggleShortcut();
     QString stopKey = m_settings->stopShortcut();
+
+    QString dummyReason;
+    if (!isSequenceValidForGlobal(QKeySequence(toggleKey), dummyReason)) {
+        toggleKey = QStringLiteral("F6");
+        m_settings->setToggleShortcut(toggleKey);
+    }
+    if (!isSequenceValidForGlobal(QKeySequence(stopKey), dummyReason)) {
+        stopKey = QStringLiteral("F7");
+        m_settings->setStopShortcut(stopKey);
+    }
+    m_settings->sync();
+
+    m_lastValidToggle = toggleKey;
+    m_lastValidStop = stopKey;
+
+    m_toggleShortcutEdit->blockSignals(true);
+    m_stopShortcutEdit->blockSignals(true);
     m_toggleShortcutEdit->setKeySequence(QKeySequence(toggleKey));
     m_stopShortcutEdit->setKeySequence(QKeySequence(stopKey));
+    m_toggleShortcutEdit->blockSignals(false);
+    m_stopShortcutEdit->blockSignals(false);
+
     m_startButton->setText(QStringLiteral("Start (%1)").arg(toggleKey));
     m_stopButton->setText(QStringLiteral("Stop (%1)").arg(stopKey));
 
     updateJitterMax();
     onOptionChanged();
+    validateShortcutInputs();
 }
 
 void MainWindow::saveSettings() {
@@ -282,10 +313,37 @@ void MainWindow::saveSettings() {
 
     QString toggleKey = m_toggleShortcutEdit->keySequence().toString();
     QString stopKey = m_stopShortcutEdit->keySequence().toString();
-    if (!toggleKey.isEmpty()) m_settings->setToggleShortcut(toggleKey);
-    if (!stopKey.isEmpty()) m_settings->setStopShortcut(stopKey);
+
+    QString dummy;
+    if (isSequenceValidForGlobal(QKeySequence(toggleKey), dummy)) {
+        m_settings->setToggleShortcut(toggleKey);
+    } else {
+        m_settings->setToggleShortcut(m_lastValidToggle);
+    }
+    if (isSequenceValidForGlobal(QKeySequence(stopKey), dummy)) {
+        m_settings->setStopShortcut(stopKey);
+    } else {
+        m_settings->setStopShortcut(m_lastValidStop);
+    }
 
     m_settings->sync();
+}
+
+bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::KeyPress && (watched == m_toggleShortcutEdit || watched == m_stopShortcutEdit)) {
+        auto* keyEvent = static_cast<QKeyEvent*>(event);
+        int key = keyEvent->key();
+        if (key == Qt::Key_NumLock || key == Qt::Key_CapsLock || key == Qt::Key_ScrollLock) {
+            auto* edit = qobject_cast<QWidget*>(watched);
+            QToolTip::showText(
+                edit ? edit->mapToGlobal(QPoint(0, edit->height())) : QCursor::pos(),
+                QStringLiteral("Les touches de verrouillage (Verr num, Verr maj) ne sont pas autorisées"),
+                edit
+            );
+            return true; // Drop event completely
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
 }
 
 bool MainWindow::isSequenceValidForGlobal(const QKeySequence& seq, QString& reason) {
@@ -297,16 +355,22 @@ bool MainWindow::isSequenceValidForGlobal(const QKeySequence& seq, QString& reas
     auto mods = comb.keyboardModifiers();
     auto key = comb.key();
 
+    if (key == Qt::Key_NumLock || key == Qt::Key_CapsLock || key == Qt::Key_ScrollLock) {
+        reason = QStringLiteral("Les touches de verrouillage (Verr num, Verr maj) ne sont pas autorisées comme déclencheurs.");
+        return false;
+    }
+
+    if (key == Qt::Key_Control || key == Qt::Key_Alt || key == Qt::Key_Shift || key == Qt::Key_Meta ||
+        key == Qt::Key_Super_L || key == Qt::Key_Super_R) {
+        reason = QStringLiteral("Un modificateur seul n'est pas un raccourci complet.");
+        return false;
+    }
+
     bool isFunctionKey = (key >= Qt::Key_F1 && key <= Qt::Key_F35) ||
                          key == Qt::Key_Pause || key == Qt::Key_Print;
     bool hasModifier = mods.testFlag(Qt::ControlModifier) ||
                        mods.testFlag(Qt::AltModifier) ||
                        mods.testFlag(Qt::MetaModifier);
-
-    if (key == Qt::Key_NumLock || key == Qt::Key_CapsLock || key == Qt::Key_ScrollLock) {
-        reason = QStringLiteral("Les touches de verrouillage (Verr num, Verr maj) ne sont pas autorisées comme déclencheurs.");
-        return false;
-    }
 
     if (!isFunctionKey && !hasModifier) {
         reason = QStringLiteral("Un raccourci global nécessite une touche de fonction (F1-F12) ou un modificateur (ex: Ctrl+O, Alt+S, Meta+O). Les lettres et signes seuls ne sont pas interceptés globalement.");
@@ -314,6 +378,83 @@ bool MainWindow::isSequenceValidForGlobal(const QKeySequence& seq, QString& reas
     }
 
     return true;
+}
+
+void MainWindow::validateShortcutInputs() {
+    QString toggleReason;
+    bool toggleValid = isSequenceValidForGlobal(m_toggleShortcutEdit->keySequence(), toggleReason);
+    QString stopReason;
+    bool stopValid = isSequenceValidForGlobal(m_stopShortcutEdit->keySequence(), stopReason);
+
+    if (!toggleValid) {
+        m_toggleShortcutEdit->setStyleSheet(QStringLiteral("border: 2px solid #e74c3c; background-color: #3d1f1f; color: white;"));
+        m_toggleShortcutEdit->setToolTip(toggleReason);
+    } else {
+        m_toggleShortcutEdit->setStyleSheet(QStringLiteral(""));
+        m_toggleShortcutEdit->setToolTip(QStringLiteral(""));
+    }
+
+    if (!stopValid) {
+        m_stopShortcutEdit->setStyleSheet(QStringLiteral("border: 2px solid #e74c3c; background-color: #3d1f1f; color: white;"));
+        m_stopShortcutEdit->setToolTip(stopReason);
+    } else {
+        m_stopShortcutEdit->setStyleSheet(QStringLiteral(""));
+        m_stopShortcutEdit->setToolTip(QStringLiteral(""));
+    }
+
+    bool bothValid = toggleValid && stopValid;
+    m_applyShortcutsButton->setEnabled(bothValid);
+    if (!bothValid) {
+        m_applyShortcutsButton->setToolTip(toggleValid ? stopReason : toggleReason);
+    } else {
+        m_applyShortcutsButton->setToolTip(QStringLiteral(""));
+    }
+}
+
+void MainWindow::onToggleShortcutChanged(const QKeySequence& seq) {
+    QString reason;
+    if (isSequenceValidForGlobal(seq, reason)) {
+        m_lastValidToggle = seq.toString();
+    }
+    validateShortcutInputs();
+}
+
+void MainWindow::onStopShortcutChanged(const QKeySequence& seq) {
+    QString reason;
+    if (isSequenceValidForGlobal(seq, reason)) {
+        m_lastValidStop = seq.toString();
+    }
+    validateShortcutInputs();
+}
+
+void MainWindow::onToggleEditingFinished() {
+    QString reason;
+    if (!isSequenceValidForGlobal(m_toggleShortcutEdit->keySequence(), reason)) {
+        m_toggleShortcutEdit->blockSignals(true);
+        m_toggleShortcutEdit->setKeySequence(QKeySequence(m_lastValidToggle));
+        m_toggleShortcutEdit->blockSignals(false);
+        validateShortcutInputs();
+        QToolTip::showText(
+            m_toggleShortcutEdit->mapToGlobal(QPoint(0, m_toggleShortcutEdit->height())),
+            reason,
+            m_toggleShortcutEdit
+        );
+    }
+}
+
+void MainWindow::onStopEditingFinished() {
+    QString reason;
+    if (!isSequenceValidForGlobal(m_stopShortcutEdit->keySequence(), reason)) {
+        m_stopShortcutEdit->blockSignals(true);
+        m_stopShortcutEdit->setKeySequence(QKeySequence(m_lastValidStop));
+        m_stopShortcutEdit->blockSignals(false);
+        validateShortcutInputs();
+        QToolTip::showText(
+            m_stopShortcutEdit->mapToGlobal(QPoint(0, m_stopShortcutEdit->height())),
+            reason,
+            m_stopShortcutEdit
+        );
+    }
 }
 
 void MainWindow::onApplyShortcutsClicked() {
@@ -333,6 +474,9 @@ void MainWindow::onApplyShortcutsClicked() {
     QString toggleKey = toggleSeq.toString();
     QString stopKey = stopSeq.toString();
 
+    m_lastValidToggle = toggleKey;
+    m_lastValidStop = stopKey;
+
     m_settings->setToggleShortcut(toggleKey);
     m_settings->setStopShortcut(stopKey);
     m_settings->sync();
@@ -348,12 +492,36 @@ void MainWindow::onApplyShortcutsClicked() {
 }
 
 void MainWindow::onEffectiveShortcutsUpdated(const QString& toggleKey, const QString& stopKey) {
-    m_startButton->setText(QStringLiteral("Start (%1)").arg(toggleKey));
-    m_stopButton->setText(QStringLiteral("Stop (%1)").arg(stopKey));
+    QString effToggle = toggleKey;
+    QString effStop = stopKey;
+
+    QString dummy;
+    if (isSequenceValidForGlobal(QKeySequence(effToggle), dummy)) {
+        m_lastValidToggle = effToggle;
+    }
+    if (isSequenceValidForGlobal(QKeySequence(effStop), dummy)) {
+        m_lastValidStop = effStop;
+    }
+
+    m_toggleShortcutEdit->blockSignals(true);
+    m_stopShortcutEdit->blockSignals(true);
+    m_toggleShortcutEdit->setKeySequence(QKeySequence(effToggle));
+    m_stopShortcutEdit->setKeySequence(QKeySequence(effStop));
+    m_toggleShortcutEdit->blockSignals(false);
+    m_stopShortcutEdit->blockSignals(false);
+
+    m_settings->setToggleShortcut(effToggle);
+    m_settings->setStopShortcut(effStop);
+    m_settings->sync();
+
+    m_startButton->setText(QStringLiteral("Start (%1)").arg(effToggle));
+    m_stopButton->setText(QStringLiteral("Stop (%1)").arg(effStop));
     m_startButton->update();
     m_startButton->repaint();
     m_stopButton->update();
     m_stopButton->repaint();
+
+    validateShortcutInputs();
 }
 
 std::chrono::milliseconds MainWindow::calculateTotalInterval() const {
