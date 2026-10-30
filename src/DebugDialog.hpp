@@ -14,6 +14,17 @@ class DebugDialog : public QDialog {
     Q_OBJECT
 
 public:
+    struct MemoryInfo {
+        qint64 vmRssKb{0};
+        qint64 vmHwmKb{0};
+        qint64 vmSizeKb{0};
+        qint64 vmPeakKb{0};
+        int threads{1};
+    };
+
+    static MemoryInfo readProcessMemory();
+    static QString formatKb(qint64 kb);
+
     explicit DebugDialog(
         const PortalManager* portalManager,
         const ClickController* clickController,
@@ -30,17 +41,6 @@ protected:
     void hideEvent(QHideEvent* event) override;
 
 private:
-    struct MemoryInfo {
-        qint64 vmRssKb{0};
-        qint64 vmHwmKb{0};
-        qint64 vmSizeKb{0};
-        qint64 vmPeakKb{0};
-        int threads{1};
-    };
-
-    static MemoryInfo readProcessMemory();
-    static QString formatKb(qint64 kb);
-
     const PortalManager* m_portalManager{nullptr};
     const ClickController* m_clickController{nullptr};
     QTimer* m_refreshTimer{nullptr};

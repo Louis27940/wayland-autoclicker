@@ -153,25 +153,37 @@ void DebugDialog::hideEvent(QHideEvent* event) {
 DebugDialog::MemoryInfo DebugDialog::readProcessMemory() {
     MemoryInfo info;
     QFile file(QStringLiteral("/proc/self/status"));
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&file);
-        while (!in.atEnd()) {
-            QString line = in.readLine();
-            if (line.startsWith(QLatin1String("VmRSS:"))) {
-                QStringList parts = line.split(QLatin1Char(' '), Qt::SkipEmptyParts);
-                if (parts.size() >= 2) info.vmRssKb = parts[1].toLongLong();
-            } else if (line.startsWith(QLatin1String("VmHWM:"))) {
-                QStringList parts = line.split(QLatin1Char(' '), Qt::SkipEmptyParts);
-                if (parts.size() >= 2) info.vmHwmKb = parts[1].toLongLong();
-            } else if (line.startsWith(QLatin1String("VmSize:"))) {
-                QStringList parts = line.split(QLatin1Char(' '), Qt::SkipEmptyParts);
-                if (parts.size() >= 2) info.vmSizeKb = parts[1].toLongLong();
-            } else if (line.startsWith(QLatin1String("VmPeak:"))) {
-                QStringList parts = line.split(QLatin1Char(' '), Qt::SkipEmptyParts);
-                if (parts.size() >= 2) info.vmPeakKb = parts[1].toLongLong();
-            } else if (line.startsWith(QLatin1String("Threads:"))) {
-                QStringList parts = line.split(QLatin1Char('\t'), Qt::SkipEmptyParts);
-                if (parts.size() >= 2) info.threads = parts[1].trimmed().toInt();
+    // Note: /proc pseudo-files report size() == 0, causing QFile::atEnd() and QTextStream::atEnd()
+    // to return true immediately. We must use readAll() to read the virtual file content.
+    if (file.open(QIODevice::ReadOnly)) {
+        const QByteArray content = file.readAll();
+        const auto lines = content.split('\n');
+        for (const auto& line : lines) {
+            if (line.startsWith("VmRSS:")) {
+                const auto parts = line.split(':');
+                if (parts.size() >= 2) {
+                    info.vmRssKb = parts[1].trimmed().split(' ')[0].toLongLong();
+                }
+            } else if (line.startsWith("VmHWM:")) {
+                const auto parts = line.split(':');
+                if (parts.size() >= 2) {
+                    info.vmHwmKb = parts[1].trimmed().split(' ')[0].toLongLong();
+                }
+            } else if (line.startsWith("VmSize:")) {
+                const auto parts = line.split(':');
+                if (parts.size() >= 2) {
+                    info.vmSizeKb = parts[1].trimmed().split(' ')[0].toLongLong();
+                }
+            } else if (line.startsWith("VmPeak:")) {
+                const auto parts = line.split(':');
+                if (parts.size() >= 2) {
+                    info.vmPeakKb = parts[1].trimmed().split(' ')[0].toLongLong();
+                }
+            } else if (line.startsWith("Threads:")) {
+                const auto parts = line.split(':');
+                if (parts.size() >= 2) {
+                    info.threads = parts[1].trimmed().toInt();
+                }
             }
         }
     }
