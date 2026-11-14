@@ -1,138 +1,138 @@
 # Wayland Autoclicker
 
-Utilitaire anti-AFK et autoclicker natif pour Wayland sous KDE Plasma 6, concu pour fonctionner sans privilèges root, sans acces a `/dev/uinput` et sans regles `udev`.
+Native Wayland autoclicker and anti-AFK utility designed for KDE Plasma 6 on Linux, operating without root privileges, without access to `/dev/uinput`, and without `udev` rules.
 
-L'application s'appuie exclusivement sur les interfaces D-Bus standardisees des portails XDG Desktop (`RemoteDesktop` et `GlobalShortcuts`), garantissant une integration native et securisee avec le compositeur Wayland.
-
----
-
-## Fonctionnalites
-
-- **Deux modes de fonctionnement** :
-  - **Clic** : Pression et relachement du bouton selectionne (Gauche, Droit, Milieu) aux coordonnees actuelles du pointeur.
-  - **Micro-mouvement** : Deplacement relatif alterne de +/- 1 pixel avec retour a zero net, simulant une activite sans declencher d'action dans les interfaces ou jeux.
-- **Cadence et jitter configurables** :
-  - Intervalle reglable en heures, minutes, secondes et millisecondes (de 200 ms a 10 minutes).
-  - Jitter aleatoire dynamique (jusqu'a 50 % de l'intervalle) pour eviter les cadences strictement periodiques.
-- **Securite et controles anti-emballement** :
-  - Compte a rebours avant demarrage (0 a 30 secondes) pour positionner le curseur sereinement.
-  - Option de minimisation automatique dans la boite a miniatures lors du demarrage.
-  - Arret automatique programmable (de 1 seconde a 24 heures, ou desactive).
-  - Failsafe RAII : liberation immediate et garantie de tout bouton enfonce en cas d'arret ou d'interruption.
-  - Gestionnaire de signaux POSIX async-signal-safe (`SIGINT`, `SIGTERM`, `SIGHUP`) via `socketpair` pour un arret propre.
-- **Raccourcis globaux natifs Wayland** :
-  - Deux raccourcis XDG Desktop Portals : bascule Demarrer/Arreter (Toggle) et arret d'urgence (Stop).
-  - Saisie et reassignation directes depuis l'interface ou via la configuration des raccourcis de KDE Plasma.
-  - Synchronisation bidirectionnelle avec le portail et filtrage des touches de verrouillage.
-- **Fenetre de diagnostic et debogage** :
-  - Mesure des ressources du processus : memoire physique reelle (RSS), pic memoire (HWM), memoire virtuelle (VSIZE), nombre de threads actifs.
-  - Etat detaille des sessions D-Bus des portails et jetons de restauration.
-  - Statistiques d'injection en temps reel (actions envoyees, boutons relaches, deplacement net).
-- **Integration systeme** :
-  - Boite a miniatures (*system tray*) avec icone d'etat dynamique et menu contextuel.
-  - Persistance securisee des reglages dans `~/.config/Perso/WaylandAutoclicker.conf` avec permissions strictes (0600 sur le fichier, 0700 sur le repertoire).
+The application relies exclusively on standardized XDG Desktop Portal D-Bus interfaces (`RemoteDesktop` and `GlobalShortcuts`), ensuring native, secure, and compositor-integrated input injection on Wayland.
 
 ---
 
-## Architecture technique
+## Features
 
-Le projet est developpe en C++20 et Qt6, decoupe en modules a responsabilites uniques :
-
-- `PortalManager` ([src/PortalManager.hpp](file:///home/louis/Documents/Projets_Github/Perso/Autoclicker/src/PortalManager.hpp)) : Gere le cycle de vie asynchrone des sessions XDG Desktop Portals (`RemoteDesktop` et `GlobalShortcuts`), l'ecoute des signaux D-Bus, la generation securisee des jetons et implemente l'injecteur concret.
-- `InputInjector` ([src/InputInjector.hpp](file:///home/louis/Documents/Projets_Github/Perso/Autoclicker/src/InputInjector.hpp)) : Interface abstraite thread-safe permettant d'isoler le controleur de clic de l'implementation D-Bus.
-- `ClickController` ([src/ClickController.hpp](file:///home/louis/Documents/Projets_Github/Perso/Autoclicker/src/ClickController.hpp)) : Orchestre le worker d'arriere-plan base sur `std::jthread` et `std::stop_token`. Garanti sans `sleep` bloquant grace a `std::condition_variable_any`.
-- `TimingPolicy` ([src/TimingPolicy.hpp](file:///home/louis/Documents/Projets_Github/Perso/Autoclicker/src/TimingPolicy.hpp)) : Module pur (sans dependance Qt ou D-Bus) charge du calcul des echeances absolues, du jitter et du clamping defensif.
-- `DebugDialog` ([src/DebugDialog.hpp](file:///home/louis/Documents/Projets_Github/Perso/Autoclicker/src/DebugDialog.hpp)) : Boite de dialogue de diagnostic analysant l'etat interne et les metriques de `/proc/self/status`.
-- `Settings` ([src/Settings.hpp](file:///home/louis/Documents/Projets_Github/Perso/Autoclicker/src/Settings.hpp)) : Enveloppe `QSettings` garantissant le durcissement des droits d'acces du fichier de configuration.
-- `MainWindow` / `TrayController` : Interface graphique compacte basee sur Qt Widgets et integration dans la barre des taches de Plasma.
+- **Two Operating Modes**:
+  - **Click Mode**: Press and release of the selected mouse button (Left, Right, Middle) at the current pointer coordinates.
+  - **Micro-movement Mode**: Alternating relative displacement of +/- 1 pixel with a net-zero return, simulating user activity without triggering accidental clicks in user interfaces or games.
+- **Configurable Cadence and Jitter**:
+  - Fully adjustable intervals in hours, minutes, seconds, and milliseconds (ranging from 200 ms to 10 minutes).
+  - Dynamic randomized jitter (up to 50% of the interval) to prevent strictly periodic patterns.
+- **Safety and Anti-Runaway Controls**:
+  - Start countdown (0 to 30 seconds) to position the pointer safely before activation.
+  - Option to automatically minimize to the system tray on start.
+  - Programmable auto-stop timer (from 1 second to 24 hours, or disabled).
+  - RAII Failsafe: Guarantees immediate release of any pressed mouse button upon stop, session termination, or signal interruption.
+  - Async-signal-safe POSIX signal handler (`SIGINT`, `SIGTERM`, `SIGHUP`) using a `socketpair` for graceful application shutdown.
+- **Native Wayland Global Shortcuts**:
+  - Two XDG Desktop Portal shortcuts: Start/Stop toggle and an idempotent emergency stop.
+  - Direct in-app key sequence capture and rebinding, or configuration through the native KDE Plasma shortcut settings.
+  - Bidirectional synchronization with the portal and automatic filtering of modifier lock keys (NumLock, CapsLock).
+- **Diagnostics and Debug Window**:
+  - Real-time process resource metrics: resident set size (RSS), peak memory (HWM), virtual memory size (VSIZE), and active thread count.
+  - Detailed XDG Desktop Portal D-Bus session states and persistent restore token information.
+  - Real-time engine statistics (injection attempts, button releases, net displacement).
+- **System Integration**:
+  - System tray icon with dynamic run-state indicator and context menu.
+  - Secure settings persistence in `~/.config/Perso/WaylandAutoclicker.conf` with restricted owner-only permissions (0600 on file, 0700 on directory).
 
 ---
 
-## Prerequis
+## Technical Architecture
 
-- **Systeme d'exploitation** : Linux avec session Wayland (KDE Plasma 6 recommande).
-- **Portails de bureau** : `xdg-desktop-portal` et `xdg-desktop-portal-kde`.
-- **Compilateur** : GCC >= 10 ou Clang supportant C++20 (`std::jthread`, `std::stop_token`).
-- **Outils de compilation** : CMake >= 3.21 et Ninja.
-- **Bibliotheques** :
+The application is built with modern C++20 and Qt6, structured into decoupled single-responsibility modules:
+
+- `PortalManager` ([src/PortalManager.hpp](file:///home/louis/Documents/Projets_Github/Perso/Autoclicker/src/PortalManager.hpp)): Manages asynchronous lifecycles of XDG Desktop Portal sessions (`RemoteDesktop` and `GlobalShortcuts`), listens to D-Bus signals, generates cryptographically secure request tokens, and provides the concrete input injector.
+- `InputInjector` ([src/InputInjector.hpp](file:///home/louis/Documents/Projets_Github/Perso/Autoclicker/src/InputInjector.hpp)): Thread-safe abstract interface decoupling click and movement execution from D-Bus internals.
+- `ClickController` ([src/ClickController.hpp](file:///home/louis/Documents/Projets_Github/Perso/Autoclicker/src/ClickController.hpp)): Controls the dedicated background worker based on `std::jthread` and `std::stop_token`. Employs `std::condition_variable_any` to ensure instant wakeups without blocking sleeps.
+- `TimingPolicy` ([src/TimingPolicy.hpp](file:///home/louis/Documents/Projets_Github/Perso/Autoclicker/src/TimingPolicy.hpp)): Pure domain module (no Qt or D-Bus dependencies) computing absolute deadlines, jitter offsets, and defensive parameter clamping.
+- `DebugDialog` ([src/DebugDialog.hpp](file:///home/louis/Documents/Projets_Github/Perso/Autoclicker/src/DebugDialog.hpp)): Diagnostic dialog inspecting system metrics from `/proc/self/status` and live engine state.
+- `Settings` ([src/Settings.hpp](file:///home/louis/Documents/Projets_Github/Perso/Autoclicker/src/Settings.hpp)): Encapsulates `QSettings` while enforcing secure POSIX file permissions.
+- `MainWindow` / `TrayController`: Compact graphical user interface and desktop tray integration.
+
+---
+
+## Prerequisites
+
+- **Operating System**: Linux with a Wayland session (KDE Plasma 6 recommended).
+- **Desktop Portals**: `xdg-desktop-portal` and `xdg-desktop-portal-kde`.
+- **Compiler**: GCC >= 10 or Clang supporting C++20 (`std::jthread`, `std::stop_token`).
+- **Build System**: CMake >= 3.21 and Ninja.
+- **Libraries**:
   - Qt6 (`Core`, `Widgets`, `DBus`, `Test`)
-  - En-tetes systeme Linux (`linux/input-event-codes.h`)
+  - Linux system headers (`linux/input-event-codes.h`)
 
-Sous Arch Linux / Manjaro :
+On Arch Linux / Manjaro:
 ```bash
 sudo pacman -S base-devel cmake ninja qt6-base xdg-desktop-portal xdg-desktop-portal-kde
 ```
 
-Sous Fedora :
+On Fedora:
 ```bash
 sudo dnf install gcc-c++ cmake ninja-build qt6-qtbase-devel xdg-desktop-portal xdg-desktop-portal-kde
 ```
 
-Sous Ubuntu / Debian (24.04+) :
+On Ubuntu / Debian (24.04+):
 ```bash
 sudo apt install build-essential cmake ninja-build qt6-base-dev libxkbcommon-dev xdg-desktop-portal xdg-desktop-portal-kde
 ```
 
 ---
 
-## Compilation et Installation
+## Build and Installation
 
-### 1. Configuration et compilation
+### 1. Configure and Build
 
 ```bash
 cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build
 ```
 
-### 2. Execution de la suite de tests
+### 2. Run Test Suite
 
 ```bash
 ctest --test-dir build --output-on-failure
 ```
 
-### 3. Installation locale (recommandee dans ~/.local)
+### 3. Local Installation (recommended to ~/.local)
 
 ```bash
 cmake --install build --prefix ~/.local
 ```
 
-Apres installation, l'application est disponible dans votre lanceur d'applications ou via la commande :
+Once installed, the application is available in your desktop application launcher or via command line:
 ```bash
 ~/.local/bin/wayland-autoclicker
 ```
 
 ---
 
-## Utilisation
+## Usage
 
-1. **Premier lancement** :
-   - Au demarrage, KDE Plasma affiche une boite de dialogue sollicitant l'acces au controle du pointeur (`RemoteDesktop`).
-   - Cochez l'option pour memoriser l'autorisation. Un jeton persistant securise sera enregistre pour les sessions futures.
-2. **Configuration des raccourcis** :
-   - Par defaut, les raccourcis suggeres sont `F6` (Bascule Demarrer / Arreter) et `F7` (Arret d'urgence).
-   - Vous pouvez modifier ces raccourcis directement dans l'interface (champs Toggle et Stop) ou en cliquant sur **KDE Config** pour ouvrir le panneau natif de Plasma 6.
-3. **Lancement du clic** :
-   - Configurez l'intervalle souhaite, le jitter et le compte a rebours.
-   - Cliquez sur **Start** ou appuyez sur votre raccourci global.
-   - En cas d'imprevu, appuyez a tout moment sur le raccourci d'arret pour interrompre l'action instantanement.
-4. **Diagnostic** :
-   - Cliquez sur le bouton **Debug** pour inspecter l'empreinte memoire reelle, les identifiants de session D-Bus et les compteurs d'injection.
+1. **First Launch**:
+   - On initial start, KDE Plasma presents a permission dialog requesting access to pointer emulation (`RemoteDesktop`).
+   - Check the option to remember the authorization. A secure persistent restore token will be saved for future sessions.
+2. **Shortcut Setup**:
+   - Default suggested triggers are `F6` (Toggle Start / Stop) and `F7` (Emergency Stop).
+   - Customize shortcuts directly within the UI (Toggle and Stop inputs) or click **KDE Config** to configure via the native Plasma settings module.
+3. **Running the Autoclicker**:
+   - Configure the desired click interval, jitter, and start countdown.
+   - Click **Start** or trigger your global shortcut.
+   - Press the stop shortcut at any time to halt operations immediately.
+4. **Diagnostics**:
+   - Click the **Debug** button to view real-time memory metrics, D-Bus session descriptors, and injection telemetry.
 
 ---
 
-## Revocation des autorisations
+## Revoking Portal Permissions
 
-Si vous souhaitez reinitialiser ou revoquer les autorisations accordees au portail :
-1. Ouvrez la **Configuration du systeme** de KDE Plasma.
-2. Naviguez vers **Securite et confidentialite** puis **Raccourcis** / **Autorisations des applications**.
-3. Recherchez `WaylandAutoclicker` ou `fr.perso.Autoclicker` et revoquez l'acces au portail RemoteDesktop.
-4. Supprimez eventuellement le fichier de configuration local :
+To reset or revoke the desktop portal authorization:
+1. Open KDE Plasma **System Settings**.
+2. Navigate to **Security & Privacy** -> **Application Permissions**.
+3. Locate `WaylandAutoclicker` or `fr.perso.Autoclicker` and revoke pointer access.
+4. Optionally remove the local configuration file:
    ```bash
    rm -f ~/.config/Perso/WaylandAutoclicker.conf
    ```
 
 ---
 
-## Contribution
+## Contributing
 
-Les contributions sont les bienvenues. Merci de consulter le fichier [CONTRIBUTING.md](file:///home/louis/Documents/Projets_Github/Perso/Autoclicker/CONTRIBUTING.md) pour prendre connaissance des standards de developpement, de la politique de style et du flux de validation Git.
+Contributions are welcome. Please refer to [CONTRIBUTING.md](file:///home/louis/Documents/Projets_Github/Perso/Autoclicker/CONTRIBUTING.md) for development guidelines, coding standards, and the pull request workflow.

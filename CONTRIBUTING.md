@@ -1,118 +1,118 @@
-# Guide de Contribution
+# Contribution Guidelines
 
-Merci pour votre interet envers le projet Wayland Autoclicker. Ce document rassemble les regles de developpement, les standards de code et le flux de travail a respecter pour contribuer efficacement et maintenir un niveau de qualite eleve.
-
----
-
-## 1. Principes Generaux
-
-- **Fiabilite et securite avant tout** : L'application interagit directement avec le serveur graphique Wayland et simule des entrees physiques. Tout ajout doit garantir qu'aucun clic ne peut rester coince et qu'aucun thread ne peut se bloquer indéfiniment.
-- **Approche chirurgicale (KISS et YAGNI)** : Ne modifiez que le code strictement necessaire a la fonctionnalite ou au correctif demande. Evitez les abstractions prematurees ou les composants inutilises.
-- **Verification par la preuve** : Toute contribution (code ou correction) doit etre accompagnee de tests unitaires ou de preuves tangibles de fonctionnement.
+Thank you for your interest in contributing to Wayland Autoclicker. This document outlines the development standards, code style guidelines, and Git workflow required to contribute effectively and maintain high code quality.
 
 ---
 
-## 2. Standards de Developpement
+## 1. General Principles
 
-### 2.1 Langage et Bibliothèques
-- **Norme** : C++20 moderne (`std::jthread`, `std::stop_token`, `std::condition_variable_any`, lambda-expressions, `std::optional`).
-- **Framework** : Qt6 (`QtCore`, `QtWidgets`, `QtDBus`).
-- **Absence d'appels bloquants** : Ne jamais utiliser `sleep_for`, `msleep` ou des boucles d'attente actives dans les threads de traitement. Toutes les attentes doivent etre interruptibles via un `stop_token`.
-- **RAII et securite memoire** : Gestion automatique des ressources, utilisation de gardes de portee (`QScopeGuard`) pour garantir le relachement des etats en toute circonstance.
-
-### 2.2 Compilation et Avertissements
-- Le projet compile avec `-Wall -Wextra -Wformat -Wformat-security -fstack-protector-strong`.
-- **Zero avertissement** : Tout avertissement genere par le compilateur lors d'une contribution doit etre corrige avant soumission.
-
-### 2.3 Politique Stricte sur les Emojis
-Afin de preserver la clarte et la sobriete professionnelle du depot, il est **formellement interdit d'inclure des emojis** dans :
-- Le code source (interfaces utilisateur, chaines de caracteres, commentaires, identifiants).
-- Les messages de commit Git.
-- Les titres et descriptions de Pull Requests (PR).
-- La documentation (fichiers markdown, specifications, guides).
+- **Reliability and Safety First**: This application interacts directly with the Wayland display server and emulates physical user input. Any modification must guarantee that no mouse button can become stuck down and no thread can enter an unrecoverable blocking state.
+- **Surgical Approach (KISS and YAGNI)**: Modify only what is strictly required for the feature or bug fix. Avoid premature abstractions, unnecessary utility classes, or unused boilerplate.
+- **Evidence-Based Verification**: Every contribution (feature or fix) must be accompanied by unit tests or reproducible evidence confirming functionality without side effects.
 
 ---
 
-## 3. Conventions de Commits
+## 2. Development Standards
 
-Le projet adopte rigoureusement la convention **Conventional Commits**. Chaque message de commit doit respecter la structure suivante :
+### 2.1 Language and Libraries
+- **Standard**: Modern C++20 (`std::jthread`, `std::stop_token`, `std::condition_variable_any`, lambda expressions, `std::optional`).
+- **Framework**: Qt6 (`QtCore`, `QtWidgets`, `QtDBus`).
+- **Non-blocking Execution**: Never use `std::this_thread::sleep_for`, `QThread::msleep`, or busy loops in processing threads. All pauses and waits must be interruptible via `std::stop_token`.
+- **RAII and Memory Safety**: Automatic resource management is strictly enforced. Scope guards (`QScopeGuard`) must be used to ensure cleanup and button releases under all exit conditions.
+
+### 2.2 Compiler Warnings
+- The project compiles with `-Wall -Wextra -Wformat -Wformat-security -fstack-protector-strong`.
+- **Zero Warnings**: Code contributions must compile with zero warnings under GCC and Clang.
+
+### 2.3 Strict Emoji Policy
+To maintain professional clarity and repository sobriety, it is **strictly prohibited to include emojis** in:
+- Source code (user interface text, strings, comments, variable names).
+- Git commit messages.
+- Pull Request titles and descriptions.
+- Documentation (markdown files, specifications, guidelines).
+
+---
+
+## 3. Commit Message Conventions
+
+The repository strictly enforces the **Conventional Commits** specification. Each commit message must adhere to the following structure:
 
 ```text
-<type>(<portee_optionnelle>): <description a l'indicatif sans point final>
+<type>(<optional_scope>): <imperative description without trailing period>
 ```
 
-### Types autorises
-- `feat` : Ajout d'une nouvelle fonctionnalite.
-- `fix` : Correction d'un bogue.
-- `docs` : Modification de la documentation seule.
-- `test` : Ajout ou correction de tests unitaires.
-- `refactor` : Modification du code ne changeant ni le comportement ni les fonctionnalites.
-- `perf` : Amelioration des performances ou de l'empreinte memoire.
-- `build` : Modification du systeme de construction CMake ou des dependances.
-- `ci` : Configuration de l'integration continue.
-- `chore` : Taches d'entretien diverses sans impact sur le binaire produit.
+### Allowed Types
+- `feat`: Introduces a new feature or capability.
+- `fix`: Resolves a bug or defect.
+- `docs`: Documentation-only updates.
+- `test`: Adds or fixes unit tests.
+- `refactor`: Code restructuring without altering existing behavior.
+- `perf`: Performance or memory footprint optimizations.
+- `build`: CMake build system or dependency modifications.
+- `ci`: Continuous integration adjustments.
+- `chore`: Maintenance tasks without runtime or binary impact.
 
-### Bonnes pratiques Git
-- Ecrire la description a l'imperatif ou a l'indicatif present en minuscules (ex: `feat: add support for extra mouse buttons`).
-- Ne pas commiter apres chaque micro-ajustement (ex: calibration de temporisation). Regrouper les modifications une fois stabilisees.
-- Ne jamais inclure de fichiers temporaires, de caches ou de fichiers generes par l'environnement de developpement.
+### Git Best Practices
+- Write descriptions in lowercase, imperative mood (e.g., `feat: add support for extra mouse buttons`).
+- Do not commit micro-adjustments or fine-tuning iterations individually; squash and commit once the behavior is stabilized.
+- Never commit build artifacts, editor caches, or generated files.
 
 ---
 
-## 4. Flux de Travail Git et Protection de Branche
+## 4. Git Workflow and Branch Protection
 
-### 4.1 Branche principale `main`
-- La branche `main` represente la version de production stable et testee.
-- **La branche `main` est strictement protegee** :
-  - Aucun push direct n'est autorise sur `main`.
-  - Toutes les modifications doivent transiter par une Pull Request (PR).
-  - La suite de tests CTest doit passer a 100 % avant fusion.
+### 4.1 Protected `main` Branch
+- The `main` branch represents stable, production-ready, verified code.
+- **The `main` branch is strictly protected**:
+  - Direct pushes to `main` are disallowed.
+  - All modifications must be submitted via Pull Requests (PR).
+  - The CTest test suite must pass with a 100% success rate before merging.
 
-### 4.2 Cycle de contribution
-1. Forkez ou clonez le depot localement :
+### 4.2 Contribution Lifecycle
+1. Fork or clone the repository locally:
    ```bash
    git clone https://github.com/Louis27940/wayland-autoclicker.git
    cd wayland-autoclicker
    ```
-2. Creez une branche thematique a partir de `main` :
+2. Create a dedicated topic branch from `main`:
    ```bash
-   git checkout -b feat/nom-de-votre-fonctionnalite
-   # ou
-   git checkout -b fix/nom-du-correctif
+   git checkout -b feat/your-feature-name
+   # or
+   git checkout -b fix/your-fix-name
    ```
-3. Effectuez vos modifications en respectant les standards de code et de commit.
-4. Lancez la suite de tests complete et assurez-vous de leur succes (voir section suivante).
-5. Poussez votre branche sur votre depot distant et ouvrez une Pull Request vers `main`.
+3. Implement changes following the coding and commit standards.
+4. Execute the complete test suite and confirm 100% pass rate.
+5. Push your topic branch to your fork and open a Pull Request targeting `main`.
 
 ---
 
-## 5. Construction et Validation des Tests
+## 5. Local Build and Test Verification
 
-Avant de soumettre une Pull Request, verifiez en local que la compilation est exempte de tout avertissement et que l'ensemble des tests reussit.
+Before submitting a Pull Request, confirm that the project builds cleanly without warnings and that all automated tests pass.
 
-### 5.1 Compilation avec options de durcissement
+### 5.1 Build with Security Hardening Flags
 ```bash
 cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build
 ```
 
-### 5.2 Lancement de la suite CTest
+### 5.2 Execute CTest Suite
 ```bash
 ctest --test-dir build --output-on-failure
 ```
 
-Tout comportement nouveau doit etre couvert par un test unitaire adapte dans le repertoire `tests/` (`tst_TimingPolicy`, `tst_ClickController`, `tst_DBusSignatures`, ou `tst_DebugInfo`).
+Any new behavior or bug fix must include corresponding unit tests in the `tests/` directory (`tst_TimingPolicy`, `tst_ClickController`, `tst_DBusSignatures`, or `tst_DebugInfo`).
 
 ---
 
-## 6. Signalement de Bogues et Suggestions
+## 6. Issue Reporting and Feedback
 
-### 6.1 Rapports de bogues
-Pour signaler un dysfonctionnement, ouvrez une issue sur GitHub en fournissant :
-- Une description concise et precise du probleme.
-- Les etapes permettant de le reproduire.
-- Votre environnement technique : version de la distribution Linux, version du compositeur Wayland / KDE Plasma, version de Qt.
-- Les eventuelles traces ou messages de la console.
+### 6.1 Bug Reports
+When reporting a bug, open a GitHub Issue and provide:
+- A clear, concise summary of the observed vs. expected behavior.
+- Step-by-step instructions to reproduce the issue.
+- Technical environment details: Linux distribution, Wayland compositor / KDE Plasma version, and Qt version.
+- Relevant terminal or debug dialog logs.
 
-### 6.2 Failles de securite
-Si vous identifiez une vulnerabilite ou un defaut de securite (privilege escalation, fuite de jeton, regression de permissions), merci de ne pas ouvrir d'issue publique. Contactez directement le responsable du depot ou utilisez la fonctionnalite de signalement prive de vulnerabilites de GitHub (*Private Vulnerability Reporting*).
+### 6.2 Security Vulnerabilities
+If you identify a security defect (such as privilege escalation, token leakage, or permission regression), please do not disclose it in a public issue. Use GitHub's **Private Vulnerability Reporting** feature or contact the repository maintainer directly.
