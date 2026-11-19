@@ -1,0 +1,35 @@
+# Maintainer: Louis <https://github.com/Louis27940>
+pkgname=wayland-autoclicker-bin
+pkgver=2.0.0
+pkgrel=1
+pkgdesc="Native Wayland autoclicker and anti-AFK utility for KDE Plasma 6"
+arch=('x86_64')
+url="https://github.com/Louis27940/wayland-autoclicker"
+license=('MIT')
+depends=(
+    'qt6-base'
+    'xdg-desktop-portal'
+    'hicolor-icon-theme'
+)
+optdepends=(
+    'xdg-desktop-portal-kde: Native desktop portal backend for KDE Plasma'
+)
+provides=('wayland-autoclicker')
+conflicts=('wayland-autoclicker')
+source=(
+    'wayland-autoclicker'
+    'fr.perso.Autoclicker.desktop'
+    'fr.perso.Autoclicker.png'
+    'LICENSE'
+)
+sha256sums=('b6cfa5574842842198fb8be72413f695c8f24bb1672066ed9c02995502cf0c4a'
+            '41cfc4c605eb251bae0490585666c1246b7254dd73f80b34d10571b92e4ef2af'
+            '188b904c04f0f84ae2f76e760f1db14e8567ea37af183d072b2ca61b67a8be50'
+            '760ec37d1612369e16d8f612d564437790e4cb933ae6dd45997d8c91f9cb898d')
+
+package() {
+    install -Dm755 "${srcdir}/wayland-autoclicker" "${pkgdir}/usr/bin/wayland-autoclicker"
+    install -Dm644 "${srcdir}/fr.perso.Autoclicker.desktop" "${pkgdir}/usr/share/applications/fr.perso.Autoclicker.desktop"
+    install -Dm644 "${srcdir}/fr.perso.Autoclicker.png" "${pkgdir}/usr/share/icons/hicolor/48x48/apps/fr.perso.Autoclicker.png"
+    install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

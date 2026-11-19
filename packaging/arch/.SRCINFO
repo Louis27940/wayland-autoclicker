@@ -1,0 +1,23 @@
+pkgbase = wayland-autoclicker-bin
+	pkgdesc = Native Wayland autoclicker and anti-AFK utility for KDE Plasma 6
+	pkgver = 2.0.0
+	pkgrel = 1
+	url = https://github.com/Louis27940/wayland-autoclicker
+	arch = x86_64
+	license = MIT
+	depends = qt6-base
+	depends = xdg-desktop-portal
+	depends = hicolor-icon-theme
+	optdepends = xdg-desktop-portal-kde: Native desktop portal backend for KDE Plasma
+	provides = wayland-autoclicker
+	conflicts = wayland-autoclicker
+	source = wayland-autoclicker
+	source = fr.perso.Autoclicker.desktop
+	source = fr.perso.Autoclicker.png
+	source = LICENSE
+	sha256sums = b6cfa5574842842198fb8be72413f695c8f24bb1672066ed9c02995502cf0c4a
+	sha256sums = 41cfc4c605eb251bae0490585666c1246b7254dd73f80b34d10571b92e4ef2af
+	sha256sums = 188b904c04f0f84ae2f76e760f1db14e8567ea37af183d072b2ca61b67a8be50
+	sha256sums = 760ec37d1612369e16d8f612d564437790e4cb933ae6dd45997d8c91f9cb898d
+
+pkgname = wayland-autoclicker-bin
