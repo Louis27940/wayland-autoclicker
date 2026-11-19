@@ -1,7 +1,8 @@
 [Desktop Entry]
 Name=Wayland Autoclicker
 GenericName=Autoclicker / Anti-AFK
-Comment=Utilitaire d'autoclick et anti-AFK natif Wayland pour KDE Plasma 6
+Comment=Native Wayland autoclicker and anti-AFK utility for KDE Plasma 6
+Comment[fr]=Utilitaire d'autoclick et anti-AFK natif Wayland pour KDE Plasma 6
 Exec=wayland-autoclicker
 Icon=fr.perso.Autoclicker
 Terminal=false
